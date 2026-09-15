@@ -1,0 +1,188 @@
+name: WSL Btrfs root
+
+on:
+  pull_request:
+    paths:
+      - tools/experimental-wsl-btrfs-root.sh
+      - tools/test-experimental-wsl-btrfs-root.sh
+      - .github/workflows/wsl-btrfs-root.yml
+  push:
+    branches:
+      - main
+    paths:
+      - tools/experimental-wsl-btrfs-root.sh
+      - tools/test-experimental-wsl-btrfs-root.sh
+      - .github/workflows/wsl-btrfs-root.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-tests:
+    name: Shell tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y busybox-static shellcheck
+
+      - name: Check shell syntax
+        run: |
+          bash -n tools/experimental-wsl-btrfs-root.sh
+          bash -n tools/test-experimental-wsl-btrfs-root.sh
+
+      - name: Run ShellCheck
+        run: |
+          shellcheck tools/experimental-wsl-btrfs-root.sh
+          shellcheck tools/test-experimental-wsl-btrfs-root.sh
+
+      - name: Run unit tests
+        run: bash tools/test-experimental-wsl-btrfs-root.sh
+
+  wsl-smoke:
+    name: WSL2 smoke (${{ matrix.distribution }})
+    runs-on: windows-2025
+    timeout-minutes: 25
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        distribution:
+          - Ubuntu-24.04
+          - Debian-13
+
+    steps:
+      - name: Keep repository scripts as LF
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up WSL2
+        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
+        with:
+          distribution: ${{ matrix.distribution }}
+          wsl-version: 2
+          wsl-shell-user: root
+          additional-packages: >-
+            busybox-static
+            btrfs-progs
+            rsync
+            util-linux
+
+      - name: Show WSL environment
+        shell: pwsh
+        run: |
+          wsl.exe --version
+          wsl.exe --status
+          wsl.exe --list --verbose
+
+      - name: Run unit tests inside WSL
+        shell: wsl-bash {0}
+        run: |
+          bash -n tools/experimental-wsl-btrfs-root.sh
+          bash -n tools/test-experimental-wsl-btrfs-root.sh
+          bash tools/test-experimental-wsl-btrfs-root.sh
+
+      - name: Capture pre-pivot WSL mount state
+        shell: wsl-bash {0}
+        run: |
+          {
+            printf 'kernel=%q\n' "$(uname -r)"
+            printf 'mnt_prop=%q\n' "$(findmnt -rn -o PROPAGATION -M /mnt 2>/dev/null || true)"
+            printf 'mnt_wsl_prop=%q\n' "$(findmnt -rn -o PROPAGATION -M /mnt/wsl 2>/dev/null || true)"
+            if findmnt -rn -M /usr/lib/wsl >/dev/null 2>&1; then
+              printf 'usr_lib_wsl_mount=1\n'
+            else
+              printf 'usr_lib_wsl_mount=0\n'
+            fi
+            if [ -d /run/booted-system/kernel-modules/lib/modules ]; then
+              printf 'runtime_modules=1\n'
+            else
+              printf 'runtime_modules=0\n'
+            fi
+          } | tee /root/wsl-btrfs-preflight.env
+
+          printf '%s\n' '--- pre-pivot mounts ---'
+          findmnt -R /mnt || true
+          findmnt -M /usr/lib/wsl || true
+          findmnt -M /run/booted-system/kernel-modules || true
+
+      - name: Install experimental Btrfs root
+        shell: wsl-bash {0}
+        run: bash tools/experimental-wsl-btrfs-root.sh install 16G
+
+      - name: Restart WSL
+        shell: pwsh
+        run: |
+          wsl.exe --shutdown
+          Start-Sleep -Seconds 2
+
+      - name: Validate pivoted root
+        shell: wsl-bash {0}
+        run: |
+          source /root/wsl-btrfs-preflight.env
+
+          test "$(findmnt -n -o FSTYPE /)" = btrfs
+          root_source=$(findmnt -n -o SOURCE / | sed 's/\[.*$//')
+          case "$root_source" in
+            /dev/loop*) ;;
+            *) printf 'unexpected root source: %s\n' "$root_source" >&2; exit 1 ;;
+          esac
+
+          test -d /.wsl-bootstrap
+          test -x /init
+          mountpoint -q /mnt
+          test -d /mnt/c/Windows
+          command -v powershell.exe >/dev/null
+          powershell.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' >/dev/null
+
+          post_mnt_prop=$(findmnt -rn -o PROPAGATION -M /mnt 2>/dev/null || true)
+          case "$post_mnt_prop" in
+            *slave*) ;;
+            *) printf '/mnt is not a slave mount after pivot: %s\n' "$post_mnt_prop" >&2; exit 1 ;;
+          esac
+
+          if [[ "$mnt_wsl_prop" == *shared* ]]; then
+            post_mnt_wsl_prop=$(findmnt -rn -o PROPAGATION -M /mnt/wsl 2>/dev/null || true)
+            case "$post_mnt_wsl_prop" in
+              *shared*) ;;
+              *) printf '/mnt/wsl lost shared propagation: %s -> %s\n' "$mnt_wsl_prop" "$post_mnt_wsl_prop" >&2; exit 1 ;;
+            esac
+          fi
+
+          if [[ "$usr_lib_wsl_mount" == 1 ]]; then
+            findmnt -rn -M /usr/lib/wsl >/dev/null
+          fi
+
+          if [[ "$runtime_modules" == 1 ]]; then
+            findmnt -rn -M /usr/lib/modules >/dev/null
+          fi
+
+          systemd_state=$(systemctl is-system-running 2>/dev/null || true)
+          case "$systemd_state" in
+            running|degraded) ;;
+            *) printf 'unexpected systemd state: %s\n' "$systemd_state" >&2; exit 1 ;;
+          esac
+
+          bash tools/experimental-wsl-btrfs-root.sh status
+
+          second_install=$(bash tools/experimental-wsl-btrfs-root.sh install 16G 2>&1)
+          printf '%s\n' "$second_install"
+          grep -Fq 'already Btrfs' <<<"$second_install"
+
+      - name: Collect diagnostics
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host '--- WSL distributions ---'
+          wsl.exe --list --verbose
+          Write-Host '--- root / mount propagation / init ---'
+          wsl.exe -d '${{ matrix.distribution }}' -u root -- bash -lc "findmnt / || true; findmnt -R /mnt || true; findmnt -M /usr/lib/wsl || true; printf 'PID 1: '; tr '\0' ' ' </proc/1/cmdline; echo; systemctl is-system-running || true"
