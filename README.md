@@ -22,7 +22,7 @@ A real LazyVim config that recreates the lavender / dusty-pink editor mockup usi
 - Nerd Font v3+
 - `ripgrep`, `fd`, `curl`
 - `tree-sitter-cli` + a C compiler
-- `lazygit` (optional, for `<leader>gg`)
+- `lazygit` (optional, for the Lazygit shortcuts)
 - a JDK for Java development
 
 ## Install
@@ -56,17 +56,20 @@ On first launch, lazy.nvim will install the plugins. Then run:
 | `<leader>e` | Explorer |
 | `<leader><space>` | Find files |
 | `<leader>/` | Grep |
-| `<leader>tt` | Bottom terminal |
+| `<leader>z` | Floating terminal (cwd) |
 | `<leader>xx` | Diagnostics on the right |
 | `<leader>xX` | Current-buffer diagnostics on the right |
 | `<leader>cs` | Symbols on the right |
-| `<leader>gg` | Lazygit |
+| `<leader>gg` | Lazygit at the Git root |
+| `<leader>gG` | Lazygit at the current working directory |
+
+The Java extra owns `<leader>tt` in Java buffers for running the current test class, so the custom terminal shortcut intentionally lives on `<leader>z`.
 
 ## Main customization files
 
 - `lua/plugins/colorscheme.lua` — lavender / pink palette
 - `lua/plugins/ui.lua` — dashboard, notifications, tabs, statusline, Noice, Trouble
-- `lua/config/options.lua` — rounded borders and editor presentation
-- `lua/config/keymaps.lua` — layout shortcuts
+- `lua/config/options.lua` — only editor options that intentionally differ from LazyVim defaults
+- `lua/config/keymaps.lua` — only custom shortcuts that intentionally differ from LazyVim defaults
 
-The setup deliberately keeps the official LazyVim starter structure so future LazyVim updates are easier to absorb.
+The setup keeps the core LazyVim starter layout and minimizes overrides so future LazyVim updates are easier to absorb.
