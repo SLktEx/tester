@@ -6,7 +6,7 @@ on:
       - fix/lazyvim-current-config
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -44,9 +44,6 @@ jobs:
           "$NVIM" --headless "+checkhealth" "+write! /tmp/checkhealth-011.txt" +qa 2>&1 | tee /tmp/checkhealth-command-011.log
           cat /tmp/checkhealth-011.txt
           cp lazy-lock.json /tmp/lazy-lock-011.json
-          echo '===LAZY_LOCK_011_BEGIN==='
-          cat /tmp/lazy-lock-011.json
-          echo '===LAZY_LOCK_011_END==='
 
       - name: Install Neovim 0.12.5
         run: |
@@ -66,3 +63,25 @@ jobs:
           "$NVIM" --headless "+checkhealth" "+write! /tmp/checkhealth-012.txt" +qa 2>&1 | tee /tmp/checkhealth-command-012.log
           cat /tmp/checkhealth-012.txt
           cmp -s lazy-lock.json /tmp/lazy-lock-011.json
+
+      - name: Capture validated lockfile and report
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-files --error-unmatch lazy-lock.json >/dev/null 2>&1; then
+            exit 0
+          fi
+          cp /tmp/lazy-lock-011.json lazy-lock.json
+          {
+            echo '=== SPEC ==='
+            cat /tmp/lazy-spec-011.log
+            echo '=== HEALTH 0.11.2 ==='
+            cat /tmp/checkhealth-011.txt
+            echo '=== HEALTH 0.12.5 ==='
+            cat /tmp/checkhealth-012.txt
+          } > .validation-result.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lazy-lock.json .validation-result.txt
+          git commit -m 'chore(nvim): capture validated lockfile'
+          git push
