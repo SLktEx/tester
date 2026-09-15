@@ -40,7 +40,9 @@ jobs:
       - name: Run ShellCheck
         run: |
           shellcheck tools/experimental-wsl-btrfs-root.sh
-          shellcheck tools/test-experimental-wsl-btrfs-root.sh
+          # The test harness intentionally stores sourced globals, mock-only
+          # functions, and literal '$@' snippets for generated-wrapper checks.
+          shellcheck --exclude=SC2016,SC2034,SC2317 tools/test-experimental-wsl-btrfs-root.sh
 
       - name: Run unit tests
         run: bash tools/test-experimental-wsl-btrfs-root.sh
@@ -96,8 +98,12 @@ jobs:
         run: |
           {
             printf 'kernel=%q\n' "$(uname -r)"
-            printf 'mnt_prop=%q\n' "$(findmnt -rn -o PROPAGATION -M /mnt 2>/dev/null || true)"
             printf 'mnt_wsl_prop=%q\n' "$(findmnt -rn -o PROPAGATION -M /mnt/wsl 2>/dev/null || true)"
+            if findmnt -rn -M /mnt/wslg >/dev/null 2>&1; then
+              printf 'mnt_wslg_mount=1\n'
+            else
+              printf 'mnt_wslg_mount=0\n'
+            fi
             if findmnt -rn -M /usr/lib/wsl >/dev/null 2>&1; then
               printf 'usr_lib_wsl_mount=1\n'
             else
@@ -128,6 +134,7 @@ jobs:
       - name: Validate pivoted root
         shell: wsl-bash {0}
         run: |
+          set -Eeuo pipefail
           source /root/wsl-btrfs-preflight.env
 
           test "$(findmnt -n -o FSTYPE /)" = btrfs
@@ -139,16 +146,11 @@ jobs:
 
           test -d /.wsl-bootstrap
           test -x /init
-          mountpoint -q /mnt
+          findmnt -rn -M /mnt/wsl >/dev/null
+          findmnt -rn -M /mnt/c >/dev/null
           test -d /mnt/c/Windows
           command -v powershell.exe >/dev/null
           powershell.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' >/dev/null
-
-          post_mnt_prop=$(findmnt -rn -o PROPAGATION -M /mnt 2>/dev/null || true)
-          case "$post_mnt_prop" in
-            *slave*) ;;
-            *) printf '/mnt is not a slave mount after pivot: %s\n' "$post_mnt_prop" >&2; exit 1 ;;
-          esac
 
           if [[ "$mnt_wsl_prop" == *shared* ]]; then
             post_mnt_wsl_prop=$(findmnt -rn -o PROPAGATION -M /mnt/wsl 2>/dev/null || true)
@@ -156,6 +158,10 @@ jobs:
               *shared*) ;;
               *) printf '/mnt/wsl lost shared propagation: %s -> %s\n' "$mnt_wsl_prop" "$post_mnt_wsl_prop" >&2; exit 1 ;;
             esac
+          fi
+
+          if [[ "$mnt_wslg_mount" == 1 ]]; then
+            findmnt -rn -M /mnt/wslg >/dev/null
           fi
 
           if [[ "$usr_lib_wsl_mount" == 1 ]]; then
@@ -172,6 +178,64 @@ jobs:
             *) printf 'unexpected systemd state: %s\n' "$systemd_state" >&2; exit 1 ;;
           esac
 
+          # Prove that the preserved /mnt/wsl shared peer group still carries
+          # a mount event across mount namespaces after pivot_root.
+          if [[ "$mnt_wsl_prop" == *shared* ]]; then
+            propagation_target=/mnt/wsl/.gha-btrfs-propagation-$$
+            mkdir -p "$propagation_target"
+            cleanup_propagation() {
+              set +e
+              mountpoint -q "$propagation_target" && umount "$propagation_target"
+              rmdir "$propagation_target" 2>/dev/null || true
+            }
+            trap cleanup_propagation EXIT
+
+            unshare --mount --propagation unchanged bash -c '
+              set -e
+              target=$1
+              mount -t tmpfs -o size=1m tmpfs "$target"
+              touch "$target/from-child-namespace"
+              sleep 10
+            ' bash "$propagation_target" &
+            child=$!
+
+            propagated=0
+            for _ in $(seq 1 50); do
+              if mountpoint -q "$propagation_target"; then
+                propagated=1
+                break
+              fi
+              sleep 0.1
+            done
+            if (( propagated == 0 )); then
+              kill "$child" 2>/dev/null || true
+              wait "$child" 2>/dev/null || true
+              printf '/mnt/wsl mount event did not propagate from a child mount namespace\n' >&2
+              exit 1
+            fi
+            test -f "$propagation_target/from-child-namespace"
+            kill "$child" 2>/dev/null || true
+            wait "$child" 2>/dev/null || true
+            cleanup_propagation
+            trap - EXIT
+          fi
+
+          # Exercise a mount created only after the pivot. This catches a
+          # bootstrap that merely copied the mounts present at install time.
+          drvfs_target=/mnt/gha-btrfs-drvfs
+          mkdir -p "$drvfs_target"
+          cleanup_drvfs() {
+            set +e
+            mountpoint -q "$drvfs_target" && umount "$drvfs_target"
+            rmdir "$drvfs_target" 2>/dev/null || true
+          }
+          trap cleanup_drvfs EXIT
+          mount -t drvfs C: "$drvfs_target"
+          findmnt -rn -M "$drvfs_target" >/dev/null
+          test -d "$drvfs_target/Windows"
+          cleanup_drvfs
+          trap - EXIT
+
           bash tools/experimental-wsl-btrfs-root.sh status
 
           second_install=$(bash tools/experimental-wsl-btrfs-root.sh install 16G 2>&1)
@@ -185,4 +249,4 @@ jobs:
           Write-Host '--- WSL distributions ---'
           wsl.exe --list --verbose
           Write-Host '--- root / mount propagation / init ---'
-          wsl.exe -d '${{ matrix.distribution }}' -u root -- bash -lc "findmnt / || true; findmnt -R /mnt || true; findmnt -M /usr/lib/wsl || true; printf 'PID 1: '; tr '\0' ' ' </proc/1/cmdline; echo; systemctl is-system-running || true"
+          wsl.exe -d '${{ matrix.distribution }}' -u root -- bash -lc "findmnt / || true; findmnt -R /mnt || true; findmnt -M /usr/lib/wsl || true; printf 'PID 1: '; tr '\0' ' ' </proc/1/cmdline; echo; printf 'PID 1 mount ns: '; readlink /proc/1/ns/mnt || true; echo; ps -eo pid,ppid,args | grep -E '(^|[[:space:]])/init([[:space:]]|$)|systemd' || true; lsns -t mnt || true; systemctl is-system-running || true"
