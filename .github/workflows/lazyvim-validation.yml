@@ -12,11 +12,16 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      TERM: xterm-256color
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install validation dependencies
+      - name: Link config and install validation dependencies
         run: |
+          mkdir -p "$HOME/.config"
+          rm -rf "$HOME/.config/nvim"
+          ln -s "$GITHUB_WORKSPACE" "$HOME/.config/nvim"
           sudo apt-get update
           sudo apt-get install -y build-essential fd-find ripgrep
           sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd
