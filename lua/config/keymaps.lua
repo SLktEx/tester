@@ -1,7 +1,7 @@
 -- Custom keymaps are loaded on the VeryLazy event.
 local map = vim.keymap.set
 
-map("n", "<leader>tt", function()
+map("n", "<leader>z", function()
   Snacks.terminal()
 end, { desc = "Terminal" })
 
