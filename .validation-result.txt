@@ -1,0 +1,573 @@
+=== SPEC ===
+
+1 lazyvim.plugins
+6 plugins
+DAP_PRESENT=false
+TT_MAP=vim.empty_dict()=== HEALTH 0.11.2 ===
+
+==============================================================================
+lazy:                                                               2 ⚠️  1 ❌
+
+lazy.nvim ~
+- {lazy.nvim} version `11.17.5`
+- ✅ OK {git} `version 2.55.0`
+- ✅ OK no existing packages found by other package managers
+- ✅ OK packer_compiled.lua not found
+
+luarocks ~
+- checking `hererocks` installation
+- ✅ OK no plugins require `luarocks`, so you can ignore any warnings below
+- ✅ OK {python3} `Python 3.12.3`
+- ❌ ERROR {/home/runner/.local/share/nvim/lazy-rocks/hererocks/bin/luarocks} not installed
+- ⚠️ WARNING {/home/runner/.local/share/nvim/lazy-rocks/hererocks/bin/lua} version `5.1` not installed
+- ⚠️ WARNING Lazy won't be able to install plugins that require `luarocks`.
+  Here's what you can do:
+   - fix your `luarocks` installation
+   - disable *hererocks* with `opts.rocks.hererocks = false`
+   - disable `luarocks` support completely with `opts.rocks.enabled = false`
+
+==============================================================================
+lazyvim:                                                            2 ⚠️  1 ❌
+
+LazyVim ~
+- ✅ OK Using Neovim >= 0.11.2
+- ✅ OK `git` is installed
+- ✅ OK `rg` is installed
+- ✅ OK `fdfind` is installed
+- ⚠️ WARNING `lazygit` is not installed
+- ⚠️ WARNING `fzf` is not installed
+- ✅ OK `curl` is installed
+
+LazyVim nvim-treesitter ~
+- ✅ OK `C compiler` is installed
+- ✅ OK `curl` is installed
+- ✅ OK `tar` is installed
+- ❌ ERROR `tree-sitter (CLI)` is not installed
+- See the requirements at [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter/tree/main?tab=readme-ov-file#requirements)
+- Run `:checkhealth nvim-treesitter` for more information.
+
+==============================================================================
+snacks:                                                             8 ⚠️ 12 ❌
+
+Snacks ~
+- ✅ OK setup called
+
+Snacks.bigfile ~
+- ✅ OK setup {enabled}
+
+Snacks.dashboard ~
+- ✅ OK setup {enabled}
+- ❌ ERROR setup did not run
+
+Snacks.explorer ~
+- ✅ OK setup {enabled}
+- ✅ OK 'gio' `2.80.0`
+- ✅ OK System trash command found
+
+Snacks.image ~
+- ⚠️ WARNING setup {disabled}
+- ❌ ERROR None of the tools found: 'kitty', 'wezterm', 'ghostty'
+- ❌ ERROR None of the tools found: 'magick', 'convert'
+- ❌ ERROR `magick` is required to convert images. Only PNG files will be displayed.
+- ✅ OK Terminal Dimensions:
+  - {size}: `720` x `432` pixels
+  - {scale}: `1.13`
+  - {cell}: `9` x `18` pixels
+- ✅ OK Available Treesitter languages:
+    `markdown_inline`, `markdown`
+- ⚠️ WARNING Missing Treesitter languages:
+    `css`, `html`, `javascript`, `latex`, `norg`, `scss`, `svelte`, `tsx`, `typst`, `vue`
+- ⚠️ WARNING Image rendering in docs with missing treesitter parsers won't work
+- ❌ ERROR Tool not found: 'gs'
+- ⚠️ WARNING `gs` is required to render PDF files
+- ❌ ERROR None of the tools found: 'tectonic', 'pdflatex'
+- ⚠️ WARNING `tectonic` or `pdflatex` is required to render LaTeX math expressions
+- ❌ ERROR Tool not found: 'mmdc'
+- ⚠️ WARNING `mmdc` is required to render Mermaid diagrams
+- ❌ ERROR your terminal does not support the kitty graphics protocol
+- supported terminals: `kitty`, `wezterm`, `ghostty`
+
+Snacks.input ~
+- ✅ OK setup {enabled}
+- ❌ ERROR `vim.ui.input` is not set to `Snacks.input`
+
+Snacks.lazygit ~
+- ❌ ERROR {lazygit} not installed
+
+Snacks.notifier ~
+- ✅ OK setup {enabled}
+- ❌ ERROR is not ready
+
+Snacks.picker ~
+- ✅ OK setup {enabled}
+- ❌ ERROR `vim.ui.select` is not set to `Snacks.picker.select`
+- ⚠️ WARNING Missing Treesitter languages:
+    `regex`
+- ✅ OK 'git' `git version 2.55.0`
+- ✅ OK 'rg' `ripgrep 14.1.0`
+- ✅ OK `Snacks.picker.grep()` is available
+- ✅ OK 'fd' `fdfind 9.0.0`
+- ✅ OK 'fdfind' `fdfind 9.0.0`
+- ✅ OK `Snacks.picker.files()` is available
+- ✅ OK `Snacks.picker.explorer()` is available
+- ✅ OK `SQLite3` is available
+
+Snacks.quickfile ~
+- ✅ OK setup {enabled}
+
+Snacks.scope ~
+- ✅ OK setup {enabled}
+
+Snacks.scroll ~
+- ✅ OK setup {enabled}
+
+Snacks.statuscolumn ~
+- ⚠️ WARNING setup {disabled}
+
+Snacks.terminal ~
+- ✅ OK shell configured
+  - `vim.o.shell`: /bin/bash
+  - `parsed`: { "/bin/bash" }
+
+Snacks.toggle ~
+- ✅ OK {which-key} is installed
+
+Snacks.words ~
+- ✅ OK setup {enabled}
+
+==============================================================================
+vim.deprecated:                                                             ✅
+
+- ✅ OK No deprecated functions detected
+
+==============================================================================
+vim.health:                                                                 ✅
+
+Configuration ~
+- ✅ OK no issues found
+
+Runtime ~
+- ✅ OK $VIMRUNTIME: /opt/nvim-0.11.2/share/nvim/runtime
+
+Performance ~
+- ✅ OK Build type: Release
+
+Remote Plugins ~
+- ✅ OK Up to date
+
+terminal ~
+- key_backspace (kbs) terminfo entry: `key_backspace=\177`
+- key_dc (kdch1) terminfo entry: `key_dc=\E[3~`
+
+External Tools ~
+- ✅ OK ripgrep 14.1.0 (/usr/bin/rg)
+
+==============================================================================
+vim.lsp:                                                                    ✅
+
+- LSP log level : WARN
+- Log path: /home/runner/.local/state/nvim/lsp.log
+- Log size: 0 KB
+
+vim.lsp: Active Clients ~
+- No active clients
+
+vim.lsp: Enabled Configurations ~
+
+vim.lsp: File Watcher ~
+- file watching "(workspace/didChangeWatchedFiles)" disabled on all clients
+
+vim.lsp: Position Encodings ~
+- No active clients
+
+==============================================================================
+vim.provider:                                                             7 ⚠️
+
+Clipboard (optional) ~
+- ⚠️ WARNING No clipboard tool found. Clipboard registers (`"+` and `"*`) will not work.
+  - ADVICE:
+    - :help |clipboard|
+
+Node.js provider (optional) ~
+- Node.js: v22.23.2
+
+- ⚠️ WARNING Missing "neovim" npm (or yarn, pnpm) package.
+  - ADVICE:
+    - Run in shell: npm install -g neovim
+    - Run in shell (if you use yarn): yarn global add neovim
+    - Run in shell (if you use pnpm): pnpm install -g neovim
+    - You may disable this provider (and warning) by adding `let g:loaded_node_provider = 0` to your init.vim
+
+Perl provider (optional) ~
+- ⚠️ WARNING "Neovim::Ext" cpan module is not installed
+  - ADVICE:
+    - See :help |provider-perl| for more information.
+    - You can disable this provider (and warning) by adding `let g:loaded_perl_provider = 0` to your init.vim
+- ⚠️ WARNING No usable perl executable found
+
+Python 3 provider (optional) ~
+- ⚠️ WARNING No Python executable found that can `import neovim`. Using the first available executable for diagnostics.
+- ⚠️ WARNING Could not load Python :
+  /usr/bin/python3 does not have the "neovim" module.
+  python3.13 not found in search path or not executable.
+  /usr/bin/python3.12 does not have the "neovim" module.
+  python3.11 not found in search path or not executable.
+  python3.10 not found in search path or not executable.
+  python3.9 not found in search path or not executable.
+  /usr/bin/python does not have the "neovim" module.
+  - ADVICE:
+    - See :help |provider-python| for more information.
+    - You can disable this provider (and warning) by adding `let g:loaded_python3_provider = 0` to your init.vim
+- Executable: Not found
+
+Python virtualenv ~
+- ✅ OK no $VIRTUAL_ENV
+
+Ruby provider (optional) ~
+- Ruby: ruby 3.2.3 (2024-01-18 revision 52bb2ac0a6) [x86_64-linux-gnu]
+- ⚠️ WARNING `neovim-ruby-host` not found.
+  - ADVICE:
+    - Run `gem install neovim` to ensure the neovim RubyGem is installed.
+    - Run `gem environment` to ensure the gem bin directory is in $PATH.
+    - If you are using rvm/rbenv/chruby, try "rehashing".
+    - See :help |g:ruby_host_prog| for non-standard gem installations.
+    - You can disable this provider (and warning) by adding `let g:loaded_ruby_provider = 0` to your init.vim
+
+==============================================================================
+vim.treesitter:                                                             ✅
+
+Treesitter features ~
+- Treesitter ABI support: min 13, max 15
+- WASM parser support: false
+
+Treesitter parsers ~
+- ✅ OK Parser: c                    ABI: 14, path: /opt/nvim-0.11.2/lib/nvim/parser/c.so
+- ✅ OK Parser: lua                  ABI: 14, path: /opt/nvim-0.11.2/lib/nvim/parser/lua.so
+- ✅ OK Parser: markdown             ABI: 14, path: /opt/nvim-0.11.2/lib/nvim/parser/markdown.so
+- ✅ OK Parser: markdown_inline      ABI: 14, path: /opt/nvim-0.11.2/lib/nvim/parser/markdown_inline.so
+- ✅ OK Parser: query                ABI: 14, path: /opt/nvim-0.11.2/lib/nvim/parser/query.so
+- ✅ OK Parser: vim                  ABI: 14, path: /opt/nvim-0.11.2/lib/nvim/parser/vim.so
+- ✅ OK Parser: vimdoc               ABI: 14, path: /opt/nvim-0.11.2/lib/nvim/parser/vimdoc.so
+
+=== HEALTH 0.12.5 ===
+
+==============================================================================
+lazy:                                                               3 ⚠️  1 ❌
+
+lazy.nvim ~
+- {lazy.nvim} version `11.17.5`
+- ✅ OK {git} `version 2.55.0`
+- ⚠️ WARNING found existing packages at `/home/runner/.local/share/nvim/site/pack/core`
+- ✅ OK packer_compiled.lua not found
+
+luarocks ~
+- checking `hererocks` installation
+- ✅ OK no plugins require `luarocks`, so you can ignore any warnings below
+- ✅ OK {python3} `Python 3.12.3`
+- ❌ ERROR {/home/runner/.local/share/nvim/lazy-rocks/hererocks/bin/luarocks} not installed
+- ⚠️ WARNING {/home/runner/.local/share/nvim/lazy-rocks/hererocks/bin/lua} version `5.1` not installed
+- ⚠️ WARNING Lazy won't be able to install plugins that require `luarocks`.
+  Here's what you can do:
+   - fix your `luarocks` installation
+   - disable *hererocks* with `opts.rocks.hererocks = false`
+   - disable `luarocks` support completely with `opts.rocks.enabled = false`
+
+==============================================================================
+lazyvim:                                                            2 ⚠️  1 ❌
+
+LazyVim ~
+- ✅ OK Using Neovim >= 0.11.2
+- ✅ OK `git` is installed
+- ✅ OK `rg` is installed
+- ✅ OK `fdfind` is installed
+- ⚠️ WARNING `lazygit` is not installed
+- ⚠️ WARNING `fzf` is not installed
+- ✅ OK `curl` is installed
+
+LazyVim nvim-treesitter ~
+- ✅ OK `C compiler` is installed
+- ✅ OK `curl` is installed
+- ✅ OK `tar` is installed
+- ❌ ERROR `tree-sitter (CLI)` is not installed
+- See the requirements at [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter/tree/main?tab=readme-ov-file#requirements)
+- Run `:checkhealth nvim-treesitter` for more information.
+
+==============================================================================
+snacks:                                                             8 ⚠️ 12 ❌
+
+Snacks ~
+- ✅ OK setup called
+
+Snacks.bigfile ~
+- ✅ OK setup {enabled}
+
+Snacks.dashboard ~
+- ✅ OK setup {enabled}
+- ❌ ERROR setup did not run
+
+Snacks.explorer ~
+- ✅ OK setup {enabled}
+- ✅ OK 'gio' `2.80.0`
+- ✅ OK System trash command found
+
+Snacks.image ~
+- ⚠️ WARNING setup {disabled}
+- ❌ ERROR None of the tools found: 'kitty', 'wezterm', 'ghostty'
+- ❌ ERROR None of the tools found: 'magick', 'convert'
+- ❌ ERROR `magick` is required to convert images. Only PNG files will be displayed.
+- ✅ OK Terminal Dimensions:
+  - {size}: `720` x `432` pixels
+  - {scale}: `1.12`
+  - {cell}: `9` x `18` pixels
+- ✅ OK Available Treesitter languages:
+    `markdown_inline`, `markdown`
+- ⚠️ WARNING Missing Treesitter languages:
+    `css`, `html`, `javascript`, `latex`, `norg`, `scss`, `svelte`, `tsx`, `typst`, `vue`
+- ⚠️ WARNING Image rendering in docs with missing treesitter parsers won't work
+- ❌ ERROR Tool not found: 'gs'
+- ⚠️ WARNING `gs` is required to render PDF files
+- ❌ ERROR None of the tools found: 'tectonic', 'pdflatex'
+- ⚠️ WARNING `tectonic` or `pdflatex` is required to render LaTeX math expressions
+- ❌ ERROR Tool not found: 'mmdc'
+- ⚠️ WARNING `mmdc` is required to render Mermaid diagrams
+- ❌ ERROR your terminal does not support the kitty graphics protocol
+- supported terminals: `kitty`, `wezterm`, `ghostty`
+
+Snacks.input ~
+- ✅ OK setup {enabled}
+- ❌ ERROR `vim.ui.input` is not set to `Snacks.input`
+
+Snacks.lazygit ~
+- ❌ ERROR {lazygit} not installed
+
+Snacks.notifier ~
+- ✅ OK setup {enabled}
+- ❌ ERROR is not ready
+
+Snacks.picker ~
+- ✅ OK setup {enabled}
+- ❌ ERROR `vim.ui.select` is not set to `Snacks.picker.select`
+- ⚠️ WARNING Missing Treesitter languages:
+    `regex`
+- ✅ OK 'git' `git version 2.55.0`
+- ✅ OK 'rg' `ripgrep 14.1.0`
+- ✅ OK `Snacks.picker.grep()` is available
+- ✅ OK 'fd' `fdfind 9.0.0`
+- ✅ OK 'fdfind' `fdfind 9.0.0`
+- ✅ OK `Snacks.picker.files()` is available
+- ✅ OK `Snacks.picker.explorer()` is available
+- ✅ OK `SQLite3` is available
+
+Snacks.quickfile ~
+- ✅ OK setup {enabled}
+
+Snacks.scope ~
+- ✅ OK setup {enabled}
+
+Snacks.scroll ~
+- ✅ OK setup {enabled}
+
+Snacks.statuscolumn ~
+- ⚠️ WARNING setup {disabled}
+
+Snacks.terminal ~
+- ✅ OK shell configured
+  - `vim.o.shell`: /bin/bash
+  - `parsed`: { "/bin/bash" }
+
+Snacks.toggle ~
+- ✅ OK {which-key} is installed
+
+Snacks.words ~
+- ✅ OK setup {enabled}
+
+==============================================================================
+vim.deprecated:                                                             ✅
+
+- ✅ OK No deprecated functions detected
+
+==============================================================================
+vim.health:                                                                 ✅
+
+System Info ~
+- ✅ OK Up to date (0.12.5)
+- Nvim version: `v0.12.5` 
+- Operating system: Linux 6.17.0-1022-azure
+- Terminal: unknown
+- $TERM: xterm-256color
+
+Configuration ~
+- ✅ OK no issues found
+
+Runtime ~
+- ✅ OK $VIMRUNTIME: /opt/nvim-0.12.5/share/nvim/runtime
+
+Performance ~
+- ✅ OK Build type: Release
+
+Remote Plugins ~
+- ✅ OK Up to date
+
+Terminal ~
+- key_backspace (kbs) terminfo entry: `key_backspace=\177`
+- key_dc (kdch1) terminfo entry: `key_dc=\E[3~`
+
+External Tools ~
+- ✅ OK ripgrep 14.1.0 (/usr/bin/rg)
+- ✅ OK vim.ui.open: handler found (xdg-open)
+- ✅ OK git version 2.55.0 (/usr/bin/git)
+- ✅ OK curl 8.5.0 (/usr/bin/curl)
+  curl 8.5.0 (x86_64-pc-linux-gnu) libcurl/8.5.0 OpenSSL/3.0.13 zlib/1.3 brotli/1.1.0 zstd/1.5.5 libidn2/2.3.7 libpsl/0.21.2 (+libidn2/2.3.7) libssh/0.10.6/openssl/zlib nghttp2/1.59.0 librtmp/2.3 OpenLDAP/2.6.10
+  Release-Date: 2023-12-06, security patched: 8.5.0-2ubuntu10.13
+  Protocols: dict file ftp ftps gopher gophers http https imap imaps ldap ldaps mqtt pop3 pop3s rtmp rtsp scp sftp smb smbs smtp smtps telnet tftp
+  Features: alt-svc AsynchDNS brotli GSS-API HSTS HTTP2 HTTPS-proxy IDN IPv6 Kerberos Largefile libz NTLM PSL SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd
+
+==============================================================================
+vim.lsp:                                                                    ✅
+
+- LSP log level : WARN
+- Log path: /home/runner/.local/state/nvim/lsp.log
+- Log size: 0 KB
+
+vim.lsp: Active Features ~
+
+vim.lsp: Active Clients ~
+- No active clients
+
+vim.lsp: Enabled Configurations ~
+
+vim.lsp: File Watcher ~
+- file watching "(workspace/didChangeWatchedFiles)" disabled on all clients
+
+vim.lsp: Position Encodings ~
+- No active clients
+
+==============================================================================
+vim.pack:                                                                 1 ⚠️
+
+vim.pack: basics ~
+- Git: version 2.55.0 (/usr/bin/git)
+- Lockfile: /home/runner/.config/nvim/nvim-pack-lock.json
+- Plugin directory: /home/runner/.local/share/nvim/site/pack/core/opt
+- ⚠️ WARNING Lockfile is absent, plugin directory is present. Restart Nvim and run `vim.pack.add({})` to regenerate the lockfile
+
+vim.pack: plugin directory ~
+- ✅ OK 
+
+==============================================================================
+vim.provider:                                                             7 ⚠️
+
+Clipboard (optional) ~
+- ⚠️ WARNING No clipboard tool found. Clipboard registers (`"+` and `"*`) will not work.
+  - ADVICE:
+    - :help |clipboard|
+
+Node.js provider (optional) ~
+- Node.js: 22.23.2
+- ⚠️ WARNING Missing "neovim" npm (or yarn, pnpm) package.
+  - ADVICE:
+    - Run in shell: npm install -g neovim
+    - Run in shell (if you use yarn): yarn global add neovim
+    - Run in shell (if you use pnpm): pnpm install -g neovim
+    - You may disable this provider (and warning) by adding `let g:loaded_node_provider = 0` to your init.vim
+
+Perl provider (optional) ~
+- ⚠️ WARNING "Neovim::Ext" cpan module is not installed
+  - ADVICE:
+    - See :help |provider-perl| for more information.
+    - You can disable this provider (and warning) by adding `let g:loaded_perl_provider = 0` to your init.vim
+- ⚠️ WARNING No usable perl executable found
+
+Python 3 provider (optional) ~
+- ⚠️ WARNING No Python executable found that can `import neovim`. Using the first available executable for diagnostics.
+- ⚠️ WARNING Could not load Python :
+  /usr/bin/python3 does not have the "neovim" module.
+  python3.14 not found in search path or not executable.
+  python3.13 not found in search path or not executable.
+  /usr/bin/python3.12 does not have the "neovim" module.
+  python3.11 not found in search path or not executable.
+  python3.10 not found in search path or not executable.
+  python3.9 not found in search path or not executable.
+  /usr/bin/python does not have the "neovim" module.
+  - ADVICE:
+    - See :help |provider-python| for more information.
+    - You can disable this provider (and warning) by adding `let g:loaded_python3_provider = 0` to your init.vim
+- Executable: Not found
+
+Python virtualenv ~
+- ✅ OK no $VIRTUAL_ENV
+
+Ruby provider (optional) ~
+- Ruby: 3.2.3
+- ⚠️ WARNING `neovim-ruby-host` not found.
+  - ADVICE:
+    - Run `gem install neovim` to ensure the neovim RubyGem is installed.
+    - Run `gem environment` to ensure the gem bin directory is in $PATH.
+    - If you are using rvm/rbenv/chruby, try "rehashing".
+    - See :help |g:ruby_host_prog| for non-standard gem installations.
+    - You can disable this provider (and warning) by adding `let g:loaded_ruby_provider = 0` to your init.vim
+
+==============================================================================
+vim.treesitter:                                                             ✅
+
+Treesitter features ~
+- Treesitter ABI support: min 13, max 15
+- WASM parser support: false
+
+Treesitter parsers ~
+- ✅ OK Parser: c                         ABI: 15, path: /opt/nvim-0.12.5/lib/nvim/parser/c.so
+- ✅ OK Parser: lua                       ABI: 15, path: /opt/nvim-0.12.5/lib/nvim/parser/lua.so
+- ✅ OK Parser: markdown                  ABI: 15, path: /opt/nvim-0.12.5/lib/nvim/parser/markdown.so
+- ✅ OK Parser: markdown_inline           ABI: 15, path: /opt/nvim-0.12.5/lib/nvim/parser/markdown_inline.so
+- ✅ OK Parser: query                     ABI: 15, path: /opt/nvim-0.12.5/lib/nvim/parser/query.so
+- ✅ OK Parser: vim                       ABI: 15, path: /opt/nvim-0.12.5/lib/nvim/parser/vim.so
+- ✅ OK Parser: vimdoc                    ABI: 15, path: /opt/nvim-0.12.5/lib/nvim/parser/vimdoc.so
+
+Treesitter queries ~
+- ✅ OK c               folds           /opt/nvim-0.12.5/share/nvim/runtime/queries/c
+- ✅ OK c               highlights      /opt/nvim-0.12.5/share/nvim/runtime/queries/c
+- ✅ OK c               injections      /opt/nvim-0.12.5/share/nvim/runtime/queries/c
+- ✅ OK css             images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/css
+- ✅ OK ecma            folds           /home/runner/.local/share/nvim/site/queries/ecma
+- ✅ OK ecma            highlights      /home/runner/.local/share/nvim/site/queries/ecma
+- ✅ OK ecma            indents         /home/runner/.local/share/nvim/site/queries/ecma
+- ✅ OK ecma            injections      /home/runner/.local/share/nvim/site/queries/ecma
+- ✅ OK ecma            locals          /home/runner/.local/share/nvim/site/queries/ecma
+- ✅ OK html            images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/html
+- ✅ OK html_tags       highlights      /home/runner/.local/share/nvim/site/queries/html_tags
+- ✅ OK html_tags       indents         /home/runner/.local/share/nvim/site/queries/html_tags
+- ✅ OK html_tags       injections      /home/runner/.local/share/nvim/site/queries/html_tags
+- ✅ OK javascript      images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/javascript
+- ✅ OK jsx             folds           /home/runner/.local/share/nvim/site/queries/jsx
+- ✅ OK jsx             highlights      /home/runner/.local/share/nvim/site/queries/jsx
+- ✅ OK jsx             indents         /home/runner/.local/share/nvim/site/queries/jsx
+- ✅ OK jsx             injections      /home/runner/.local/share/nvim/site/queries/jsx
+- ✅ OK latex           images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/latex
+- ✅ OK lua             folds           /opt/nvim-0.12.5/share/nvim/runtime/queries/lua
+- ✅ OK lua             highlights      /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/lua
+- ✅ OK lua             highlights      /home/runner/.local/share/nvim/lazy/LazyVim/queries/lua
+- ✅ OK lua             highlights      /opt/nvim-0.12.5/share/nvim/runtime/queries/lua
+- ✅ OK lua             injections      /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/lua
+- ✅ OK lua             injections      /opt/nvim-0.12.5/share/nvim/runtime/queries/lua
+- ✅ OK markdown        folds           /opt/nvim-0.12.5/share/nvim/runtime/queries/markdown
+- ✅ OK markdown        highlights      /opt/nvim-0.12.5/share/nvim/runtime/queries/markdown
+- ✅ OK markdown        images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/markdown
+- ✅ OK markdown        injections      /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/markdown
+- ✅ OK markdown        injections      /opt/nvim-0.12.5/share/nvim/runtime/queries/markdown
+- ✅ OK markdown_inline highlights      /opt/nvim-0.12.5/share/nvim/runtime/queries/markdown_inline
+- ✅ OK markdown_inline images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/markdown_inline
+- ✅ OK markdown_inline injections      /opt/nvim-0.12.5/share/nvim/runtime/queries/markdown_inline
+- ✅ OK norg            images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/norg
+- ✅ OK query           folds           /opt/nvim-0.12.5/share/nvim/runtime/queries/query
+- ✅ OK query           highlights      /opt/nvim-0.12.5/share/nvim/runtime/queries/query
+- ✅ OK scss            images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/scss
+- ✅ OK svelte          images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/svelte
+- ✅ OK tsx             images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/tsx
+- ✅ OK typst           images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/typst
+- ✅ OK vim             folds           /opt/nvim-0.12.5/share/nvim/runtime/queries/vim
+- ✅ OK vim             highlights      /opt/nvim-0.12.5/share/nvim/runtime/queries/vim
+- ✅ OK vim             injections      /opt/nvim-0.12.5/share/nvim/runtime/queries/vim
+- ✅ OK vimdoc          highlights      /opt/nvim-0.12.5/share/nvim/runtime/queries/vimdoc
+- ✅ OK vimdoc          injections      /opt/nvim-0.12.5/share/nvim/runtime/queries/vimdoc
+- ✅ OK vue             images          /home/runner/.local/share/nvim/lazy/snacks.nvim/queries/vue
+
