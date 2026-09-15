@@ -1,0 +1,65 @@
+name: Temporary LazyVim validation
+
+on:
+  push:
+    branches:
+      - fix/lazyvim-current-config
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential fd-find ripgrep
+          sudo ln -sf /usr/bin/fdfind /usr/local/bin/fd
+          npm install -g tree-sitter-cli@0.26.1
+          tree-sitter --version
+
+      - name: Install Neovim 0.11.2
+        run: |
+          curl -fsSL https://github.com/neovim/neovim/releases/download/v0.11.2/nvim-linux-x86_64.tar.gz -o /tmp/nvim-0.11.2.tar.gz
+          sudo mkdir -p /opt/nvim-0.11.2
+          sudo tar -xzf /tmp/nvim-0.11.2.tar.gz -C /opt/nvim-0.11.2 --strip-components=1
+          /opt/nvim-0.11.2/bin/nvim --version | head -n 1
+
+      - name: Sync and validate on Neovim 0.11.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          NVIM=/opt/nvim-0.11.2/bin/nvim
+          "$NVIM" --headless "+Lazy! sync" +qa 2>&1 | tee /tmp/lazy-sync-011.log
+          "$NVIM" --headless "+Lazy! load all" +qa 2>&1 | tee /tmp/lazy-load-011.log
+          "$NVIM" --headless "+lua local mods=require('lazy.core.config').spec.modules; for i,m in ipairs(mods) do if m == 'lazyvim.plugins' or m == 'plugins' or m:match('^lazyvim%%.plugins%%.extras%%.') then print(i, m) end end" "+lua print('DAP_PRESENT=' .. tostring(require('lazy.core.config').plugins['nvim-dap'] ~= nil))" "+lua print('TT_MAP=' .. vim.inspect(vim.fn.maparg(' tt', 'n', false, true)))" +qa 2>&1 | tee /tmp/lazy-spec-011.log
+          "$NVIM" --headless "+checkhealth" "+write! /tmp/checkhealth-011.txt" +qa 2>&1 | tee /tmp/checkhealth-command-011.log
+          cat /tmp/checkhealth-011.txt
+          cp lazy-lock.json /tmp/lazy-lock-011.json
+          echo '===LAZY_LOCK_011_BEGIN==='
+          cat /tmp/lazy-lock-011.json
+          echo '===LAZY_LOCK_011_END==='
+
+      - name: Install Neovim 0.12.5
+        run: |
+          curl -fsSL https://github.com/neovim/neovim/releases/download/v0.12.5/nvim-linux-x86_64.tar.gz -o /tmp/nvim-0.12.5.tar.gz
+          sudo mkdir -p /opt/nvim-0.12.5
+          sudo tar -xzf /tmp/nvim-0.12.5.tar.gz -C /opt/nvim-0.12.5 --strip-components=1
+          /opt/nvim-0.12.5/bin/nvim --version | head -n 1
+
+      - name: Restore and validate the 0.11 lock on Neovim 0.12.5
+        shell: bash
+        run: |
+          set -euo pipefail
+          NVIM=/opt/nvim-0.12.5/bin/nvim
+          cp /tmp/lazy-lock-011.json lazy-lock.json
+          "$NVIM" --headless "+Lazy! restore" +qa 2>&1 | tee /tmp/lazy-restore-012.log
+          "$NVIM" --headless "+Lazy! load all" +qa 2>&1 | tee /tmp/lazy-load-012.log
+          "$NVIM" --headless "+checkhealth" "+write! /tmp/checkhealth-012.txt" +qa 2>&1 | tee /tmp/checkhealth-command-012.log
+          cat /tmp/checkhealth-012.txt
+          cmp -s lazy-lock.json /tmp/lazy-lock-011.json
