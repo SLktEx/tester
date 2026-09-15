@@ -2,9 +2,9 @@ return {
   {
     "folke/snacks.nvim",
     opts = function(_, opts)
-      opts.dashboard = vim.tbl_deep_extend("force", opts.dashboard or {}, {
-        preset = {
-          header = [[
+      opts.dashboard = opts.dashboard or {}
+      opts.dashboard.preset = opts.dashboard.preset or {}
+      opts.dashboard.preset.header = [[
 
               ୨୧  LazyVim  ୨୧
 
@@ -13,45 +13,25 @@ return {
           │   calmer days        │
           ╰──────────────────────╯
 
-]],
-          keys = {
-            { icon = " ", key = "f", desc = "Find File", action = ":lua Snacks.dashboard.pick('files')" },
-            { icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
-            { icon = " ", key = "g", desc = "Find Text", action = ":lua Snacks.dashboard.pick('live_grep')" },
-            { icon = " ", key = "r", desc = "Recent Files", action = ":lua Snacks.dashboard.pick('oldfiles')" },
-            { icon = " ", key = "c", desc = "Config", action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})" },
-            { icon = " ", key = "s", desc = "Restore Session", section = "session" },
-            { icon = " ", key = "x", desc = "Lazy Extras", action = ":LazyExtras" },
-            { icon = "󰒲 ", key = "l", desc = "Lazy", action = ":Lazy" },
-            { icon = " ", key = "q", desc = "Quit", action = ":qa" },
-          },
-        },
-      })
+]]
 
-      opts.notifier = vim.tbl_deep_extend("force", opts.notifier or {}, {
-        enabled = true,
-        style = "compact",
-        top_down = true,
-      })
+      opts.notifier = opts.notifier or {}
+      opts.notifier.style = "compact"
+      opts.notifier.top_down = true
 
-      opts.indent = vim.tbl_deep_extend("force", opts.indent or {}, {
-        enabled = true,
-        indent = { char = "│" },
-        scope = { char = "│" },
-      })
+      opts.indent = opts.indent or {}
+      opts.indent.indent = vim.tbl_deep_extend("force", opts.indent.indent or {}, { char = "│" })
+      opts.indent.scope = vim.tbl_deep_extend("force", opts.indent.scope or {}, { char = "│" })
 
-      opts.input = vim.tbl_deep_extend("force", opts.input or {}, {
-        enabled = true,
-        icon = "󰅙 ",
-      })
+      opts.input = opts.input or {}
+      opts.input.icon = "󰅙 "
 
       opts.styles = opts.styles or {}
-      opts.styles.notification = vim.tbl_deep_extend("force", opts.styles.notification or {}, {
-        border = true,
-        wo = {
-          winblend = 3,
-          wrap = false,
-        },
+      opts.styles.notification = opts.styles.notification or {}
+      opts.styles.notification.border = true
+      opts.styles.notification.wo = vim.tbl_deep_extend("force", opts.styles.notification.wo or {}, {
+        winblend = 3,
+        wrap = false,
       })
 
       return opts
@@ -61,16 +41,14 @@ return {
   {
     "akinsho/bufferline.nvim",
     opts = function(_, opts)
-      opts.options = vim.tbl_deep_extend("force", opts.options or {}, {
-        always_show_bufferline = true,
-        separator_style = "slant",
-        show_buffer_close_icons = false,
-        show_close_icon = false,
-        diagnostics = "nvim_lsp",
-        indicator = {
-          icon = "▎",
-          style = "icon",
-        },
+      opts.options = opts.options or {}
+      opts.options.always_show_bufferline = true
+      opts.options.separator_style = "slant"
+      opts.options.show_buffer_close_icons = false
+      opts.options.show_close_icon = false
+      opts.options.indicator = vim.tbl_deep_extend("force", opts.options.indicator or {}, {
+        icon = "▎",
+        style = "icon",
       })
       return opts
     end,
@@ -79,29 +57,35 @@ return {
   {
     "nvim-lualine/lualine.nvim",
     opts = function(_, opts)
-      opts.options = vim.tbl_deep_extend("force", opts.options or {}, {
-        component_separators = { left = "·", right = "·" },
-        section_separators = { left = "", right = "" },
-      })
+      opts.options = opts.options or {}
+      opts.options.component_separators = { left = "·", right = "·" }
+      opts.options.section_separators = { left = "", right = "" }
 
-      opts.sections = opts.sections or {}
-      opts.sections.lualine_a = {
-        {
-          "mode",
+      local function decorate(component, extra)
+        local decorated = type(component) == "table" and vim.deepcopy(component) or { component }
+        for key, value in pairs(extra) do
+          decorated[key] = value
+        end
+        return decorated
+      end
+
+      local left = opts.sections and opts.sections.lualine_a
+      if left and left[1] then
+        left[1] = decorate(left[1], {
           icon = "♥",
           separator = { left = "", right = "" },
           padding = { left = 1, right = 1 },
-        },
-      }
-      opts.sections.lualine_z = {
-        {
-          function()
-            return " " .. os.date("%R")
-          end,
+        })
+      end
+
+      local right = opts.sections and opts.sections.lualine_z
+      if right and #right > 0 then
+        right[#right] = decorate(right[#right], {
           separator = { left = "", right = "" },
           padding = { left = 1, right = 1 },
-        },
-      }
+        })
+      end
+
       return opts
     end,
   },
@@ -111,8 +95,6 @@ return {
     opts = {
       presets = {
         bottom_search = false,
-        command_palette = true,
-        long_message_to_split = true,
         lsp_doc_border = true,
       },
       views = {
