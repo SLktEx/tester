@@ -1,63 +1,57 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Convert the root filesystem of an EBS-backed AMI into a Docker image without
-# launching the AMI.
+# Prepare the root filesystem of an EBS-backed AMI for manual conversion on an
+# existing EC2 instance.
+#
+# This script is intentionally local-only: it uses the AWS API to find the AMI
+# root snapshot, creates an EBS volume in the target instance's Availability
+# Zone, and attaches that volume to the selected EC2 instance. It does NOT SSH
+# into the instance, mount the filesystem, or run Docker.
 #
 # Flow:
-#   AMI -> root EBS snapshot -> temporary EBS volume -> attach to selected EC2
-#       -> read-only mount -> tar stream -> docker import -> detach/delete
-#
-# IMPORTANT:
-#   Run this script on the EC2 instance selected by <target-instance-id>.
-#   The target instance is never auto-detected; you must choose it explicitly.
+#   local machine
+#     -> AMI root snapshot
+#     -> create EBS in target EC2 AZ
+#     -> attach EBS to selected EC2
+#     -> stop
 #
 # Usage:
+#   ./tools/ami-to-docker.sh <ami-id> <target-instance-id>
+#
+# Example:
 #   ./tools/ami-to-docker.sh \
 #     ami-0123456789abcdef0 \
-#     i-0123456789abcdef0 \
-#     my-image:latest
+#     i-0123456789abcdef0
 #
-# Optional environment variables:
-#   AWS_REGION=ap-northeast-1   AWS region containing the AMI and target EC2.
-#                               Falls back to AWS_DEFAULT_REGION / AWS CLI config.
-#   KEEP_VOLUME=1               Keep the temporary EBS volume after completion.
-#   VOLUME_TYPE=gp3             Temporary EBS volume type (default: gp3).
-#   ATTACH_DEVICE=/dev/sdf      AWS API attachment name (default: /dev/sdf).
+# Environment:
+#   AWS_REGION=ap-northeast-1  Region containing both the AMI and target EC2.
+#                              Falls back to AWS_DEFAULT_REGION / AWS CLI config.
+#   VOLUME_TYPE=gp3            EBS type to create (default: gp3).
+#   ATTACH_DEVICE=/dev/sdf     AWS attachment name. If omitted, the first free
+#                              name from /dev/sdf through /dev/sdp is selected.
 #
 # Requirements:
-#   aws cli, docker, GNU tar, lsblk, mount/umount
-#
-# Notes:
-#   - The target EC2 instance must be in the same Availability Zone as the
-#     temporary EBS volume. This script creates the volume in the target AZ.
-#   - Nitro instances expose EBS volumes as NVMe devices even when /dev/sdf is
-#     requested. The script resolves the real block device from the EBS volume
-#     ID instead of assuming a Linux device name.
-#   - Standard ext2/3/4, XFS, and Btrfs root filesystems are supported.
-#   - LVM-backed AMIs are intentionally rejected instead of activating a VG on
-#     the host implicitly.
+#   aws cli with permissions for DescribeImages, DescribeInstances,
+#   CreateVolume, CreateTags/Tag-on-create, AttachVolume, and EBS waiters.
 
 usage() {
   cat <<'EOF'
 Usage:
-  ami-to-docker.sh <ami-id> <target-instance-id> <docker-image[:tag]>
+  ami-to-docker.sh <ami-id> <target-instance-id>
 
 Example:
-  ./tools/ami-to-docker.sh \
-    ami-0123456789abcdef0 \
-    i-0123456789abcdef0 \
-    ubuntu-from-ami:latest
+  AWS_REGION=ap-northeast-1 \
+    ./tools/ami-to-docker.sh ami-0123456789abcdef0 i-0123456789abcdef0
 
-The target EC2 instance is always explicit. There is no automatic current-instance
-selection. Run this script on the same EC2 instance you pass as target-instance-id,
-because the mounted EBS block device and Docker daemon are accessed locally.
+What it does:
+  1. Finds the AMI root EBS snapshot.
+  2. Finds the selected EC2 instance's Availability Zone.
+  3. Creates an EBS volume from the snapshot in that AZ.
+  4. Attaches the EBS volume to the selected EC2 instance.
+  5. Prints the IDs/device name and exits.
 
-Environment:
-  AWS_REGION=ap-northeast-1
-  KEEP_VOLUME=1
-  VOLUME_TYPE=gp3
-  ATTACH_DEVICE=/dev/sdf
+It does NOT mount the EBS volume or run Docker.
 EOF
 }
 
@@ -70,30 +64,19 @@ die() {
   exit 1
 }
 
-require_command() {
-  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
-}
+command -v aws >/dev/null 2>&1 || die "required command not found: aws"
 
-for cmd in aws docker tar lsblk mount umount awk sort grep; do
-  require_command "$cmd"
-done
-
-if [[ $# -ne 3 ]]; then
+if [[ $# -ne 2 ]]; then
   usage >&2
   exit 2
 fi
 
 AMI_ID="$1"
 TARGET_INSTANCE_ID="$2"
-IMAGE="$3"
 VOLUME_TYPE="${VOLUME_TYPE:-gp3}"
-ATTACH_DEVICE="${ATTACH_DEVICE:-/dev/sdf}"
-KEEP_VOLUME="${KEEP_VOLUME:-0}"
 
 [[ "$AMI_ID" == ami-* ]] || die "invalid AMI id: $AMI_ID"
-[[ "$TARGET_INSTANCE_ID" == i-* ]] || die "invalid target EC2 instance id: $TARGET_INSTANCE_ID"
-[[ -n "$IMAGE" ]] || die "Docker image name must not be empty"
-[[ "$KEEP_VOLUME" == 0 || "$KEEP_VOLUME" == 1 ]] || die "KEEP_VOLUME must be 0 or 1"
+[[ "$TARGET_INSTANCE_ID" == i-* ]] || die "invalid EC2 instance id: $TARGET_INSTANCE_ID"
 
 REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
 if [[ -z "$REGION" ]]; then
@@ -101,56 +84,7 @@ if [[ -z "$REGION" ]]; then
 fi
 [[ -n "$REGION" ]] || die "AWS region is not configured; set AWS_REGION or configure a default region"
 
-MOUNT_DIR="$(mktemp -d /tmp/ami-to-docker.XXXXXX)"
-VOLUME_ID=""
-BLOCK_DEVICE=""
-ROOT_FS_DEVICE=""
-MOUNTED=0
-ATTACHED=0
-
-cleanup() {
-  local rc=$?
-  set +e
-
-  if [[ "$MOUNTED" == 1 ]]; then
-    log "Unmounting $MOUNT_DIR"
-    sudo umount "$MOUNT_DIR"
-    MOUNTED=0
-  fi
-
-  if [[ -n "$VOLUME_ID" && "$ATTACHED" == 1 ]]; then
-    log "Detaching temporary EBS volume $VOLUME_ID"
-    aws ec2 detach-volume \
-      --region "$REGION" \
-      --volume-id "$VOLUME_ID" \
-      >/dev/null 2>&1 || true
-
-    aws ec2 wait volume-available \
-      --region "$REGION" \
-      --volume-ids "$VOLUME_ID" \
-      >/dev/null 2>&1 || true
-
-    ATTACHED=0
-  fi
-
-  if [[ -n "$VOLUME_ID" ]]; then
-    if [[ "$KEEP_VOLUME" == 1 ]]; then
-      log "Keeping temporary EBS volume: $VOLUME_ID"
-    else
-      log "Deleting temporary EBS volume $VOLUME_ID"
-      aws ec2 delete-volume \
-        --region "$REGION" \
-        --volume-id "$VOLUME_ID" \
-        >/dev/null 2>&1 || true
-    fi
-  fi
-
-  rmdir "$MOUNT_DIR" >/dev/null 2>&1 || true
-  exit "$rc"
-}
-trap cleanup EXIT INT TERM
-
-log "Reading selected target instance"
+log "Reading target EC2 instance"
 read -r AZ INSTANCE_STATE < <(
   aws ec2 describe-instances \
     --region "$REGION" \
@@ -159,178 +93,155 @@ read -r AZ INSTANCE_STATE < <(
     --output text
 )
 
-[[ -n "$AZ" && "$AZ" != None ]] || die "target EC2 instance not found in $REGION: $TARGET_INSTANCE_ID"
-[[ "$INSTANCE_STATE" == running ]] || die "target EC2 instance must be running; current state: $INSTANCE_STATE"
+[[ -n "$AZ" && "$AZ" != None ]] || \
+  die "target EC2 instance not found in $REGION: $TARGET_INSTANCE_ID"
+
+case "$INSTANCE_STATE" in
+  running|stopped) ;;
+  *) die "target EC2 instance cannot accept the volume in state: $INSTANCE_STATE" ;;
+esac
 
 log "Target instance: $TARGET_INSTANCE_ID"
+log "State:           $INSTANCE_STATE"
 log "Region:          $REGION"
 log "AZ:              $AZ"
 
-log "Reading AMI root snapshot"
-read -r ROOT_DEVICE ROOT_TYPE ARCHITECTURE < <(
+log "Reading AMI root EBS snapshot"
+read -r ROOT_DEVICE ROOT_TYPE SNAPSHOT_ID < <(
   aws ec2 describe-images \
     --region "$REGION" \
     --image-ids "$AMI_ID" \
-    --query 'Images[0].[RootDeviceName,RootDeviceType,Architecture]' \
-    --output text
+    --query 'Images[0].[RootDeviceName,RootDeviceType,BlockDeviceMappings[?DeviceName==`'"'"'"'"'"'"'`].Ebs.SnapshotId | [0]]' \
+    --output text 2>/dev/null || true
 )
 
-[[ -n "$ROOT_DEVICE" && "$ROOT_DEVICE" != None ]] || die "AMI not found or root device missing: $AMI_ID"
-[[ "$ROOT_TYPE" == ebs ]] || die "AMI root device is not EBS-backed: $ROOT_TYPE"
+# The nested JMESPath above is awkward to parameterize portably, so fetch the
+# root metadata and snapshot separately when necessary.
+if [[ -z "${ROOT_DEVICE:-}" || "$ROOT_DEVICE" == None ]]; then
+  read -r ROOT_DEVICE ROOT_TYPE < <(
+    aws ec2 describe-images \
+      --region "$REGION" \
+      --image-ids "$AMI_ID" \
+      --query 'Images[0].[RootDeviceName,RootDeviceType]' \
+      --output text
+  )
+fi
 
-SNAPSHOT_ID="$(aws ec2 describe-images \
-  --region "$REGION" \
-  --image-ids "$AMI_ID" \
-  --query "Images[0].BlockDeviceMappings[?DeviceName=='${ROOT_DEVICE}'].Ebs.SnapshotId | [0]" \
-  --output text)"
+[[ -n "$ROOT_DEVICE" && "$ROOT_DEVICE" != None ]] || \
+  die "AMI not found or root device missing: $AMI_ID"
+[[ "$ROOT_TYPE" == ebs ]] || \
+  die "AMI root device is not EBS-backed: $ROOT_TYPE"
 
-[[ -n "$SNAPSHOT_ID" && "$SNAPSHOT_ID" != None ]] || die "root EBS snapshot not found for $AMI_ID"
+SNAPSHOT_ID="$(
+  aws ec2 describe-images \
+    --region "$REGION" \
+    --image-ids "$AMI_ID" \
+    --query "Images[0].BlockDeviceMappings[?DeviceName=='${ROOT_DEVICE}'].Ebs.SnapshotId | [0]" \
+    --output text
+)"
 
-case "$ARCHITECTURE" in
-  x86_64) PLATFORM='linux/amd64' ;;
-  arm64)  PLATFORM='linux/arm64' ;;
-  i386)   PLATFORM='linux/386' ;;
-  *) die "unsupported AMI architecture: $ARCHITECTURE" ;;
-esac
+[[ -n "$SNAPSHOT_ID" && "$SNAPSHOT_ID" != None ]] || \
+  die "root EBS snapshot not found for $AMI_ID"
 
+log "AMI:             $AMI_ID"
 log "AMI root device: $ROOT_DEVICE"
 log "Root snapshot:   $SNAPSHOT_ID"
-log "Architecture:    $ARCHITECTURE ($PLATFORM)"
 
-log "Creating temporary $VOLUME_TYPE EBS volume from $SNAPSHOT_ID"
-VOLUME_ID="$(aws ec2 create-volume \
-  --region "$REGION" \
-  --snapshot-id "$SNAPSHOT_ID" \
-  --availability-zone "$AZ" \
-  --volume-type "$VOLUME_TYPE" \
-  --tag-specifications \
-    "ResourceType=volume,Tags=[{Key=Name,Value=ami-to-docker-temp},{Key=ami-to-docker-source,Value=${AMI_ID}},{Key=ami-to-docker-target,Value=${TARGET_INSTANCE_ID}}]" \
-  --query VolumeId \
-  --output text)"
+if [[ -n "${ATTACH_DEVICE:-}" ]]; then
+  DEVICE="$ATTACH_DEVICE"
+else
+  # Pick a free API-level EBS device name. On Nitro, Linux will normally expose
+  # the volume as /dev/nvme*n1 instead; this name is still used for AttachVolume.
+  mapfile -t USED_DEVICES < <(
+    aws ec2 describe-instances \
+      --region "$REGION" \
+      --instance-ids "$TARGET_INSTANCE_ID" \
+      --query 'Reservations[0].Instances[0].BlockDeviceMappings[].DeviceName' \
+      --output text | tr '\t' '\n'
+  )
 
-[[ -n "$VOLUME_ID" && "$VOLUME_ID" == vol-* ]] || die "failed to create EBS volume"
-log "Temporary volume: $VOLUME_ID"
+  DEVICE=""
+  for suffix in f g h i j k l m n o p; do
+    candidate="/dev/sd${suffix}"
+    used=0
+    for current in "${USED_DEVICES[@]:-}"; do
+      if [[ "$current" == "$candidate" || "$current" == "/dev/xvd${suffix}" ]]; then
+        used=1
+        break
+      fi
+    done
+    if [[ "$used" == 0 ]]; then
+      DEVICE="$candidate"
+      break
+    fi
+  done
 
+  [[ -n "$DEVICE" ]] || \
+    die "no free attachment name found from /dev/sdf through /dev/sdp; set ATTACH_DEVICE explicitly"
+fi
+
+[[ "$DEVICE" == /dev/* ]] || die "ATTACH_DEVICE must be a /dev/... path"
+
+VOLUME_ID=""
+cleanup_failed_create() {
+  local rc=$?
+  if [[ $rc -ne 0 && -n "$VOLUME_ID" ]]; then
+    printf '\nERROR: volume %s was created but the operation did not finish.\n' "$VOLUME_ID" >&2
+    printf 'It was NOT deleted automatically. Inspect it before cleanup.\n' >&2
+  fi
+  exit "$rc"
+}
+trap cleanup_failed_create EXIT
+
+log "Creating $VOLUME_TYPE EBS volume from $SNAPSHOT_ID in $AZ"
+VOLUME_ID="$(
+  aws ec2 create-volume \
+    --region "$REGION" \
+    --snapshot-id "$SNAPSHOT_ID" \
+    --availability-zone "$AZ" \
+    --volume-type "$VOLUME_TYPE" \
+    --tag-specifications \
+      "ResourceType=volume,Tags=[{Key=Name,Value=ami-to-docker},{Key=ami-to-docker-source,Value=${AMI_ID}},{Key=ami-to-docker-target,Value=${TARGET_INSTANCE_ID}}]" \
+    --query VolumeId \
+    --output text
+)"
+
+[[ "$VOLUME_ID" == vol-* ]] || die "failed to create EBS volume"
+
+log "Created volume: $VOLUME_ID"
+log "Waiting for volume to become available"
 aws ec2 wait volume-available \
   --region "$REGION" \
   --volume-ids "$VOLUME_ID"
 
-log "Attaching $VOLUME_ID to selected instance $TARGET_INSTANCE_ID as $ATTACH_DEVICE"
+log "Attaching $VOLUME_ID to $TARGET_INSTANCE_ID as $DEVICE"
 aws ec2 attach-volume \
   --region "$REGION" \
   --volume-id "$VOLUME_ID" \
   --instance-id "$TARGET_INSTANCE_ID" \
-  --device "$ATTACH_DEVICE" \
+  --device "$DEVICE" \
   >/dev/null
-ATTACHED=1
 
+log "Waiting for attachment to complete"
 aws ec2 wait volume-in-use \
   --region "$REGION" \
   --volume-ids "$VOLUME_ID"
 
-# Nitro exposes EBS volumes as /dev/nvme*n1 and puts the EBS volume id, without
-# the hyphen, in the NVMe serial. Older Xen instances normally expose /dev/xvd*.
-SERIAL="${VOLUME_ID//-/}"
-log "Resolving attached Linux block device"
+trap - EXIT
 
-for _ in $(seq 1 60); do
-  BLOCK_DEVICE="$(lsblk -dn -o NAME,SERIAL 2>/dev/null \
-    | awk -v serial="$SERIAL" '$2 == serial {print "/dev/" $1; exit}')"
+cat <<EOF
 
-  if [[ -n "$BLOCK_DEVICE" && -b "$BLOCK_DEVICE" ]]; then
-    break
-  fi
+Attached successfully.
 
-  attach_basename="${ATTACH_DEVICE#/dev/}"
-  xen_device="/dev/xvd${attach_basename#sd}"
-  if [[ -b "$xen_device" ]]; then
-    BLOCK_DEVICE="$xen_device"
-    break
-  fi
+AMI:          $AMI_ID
+Snapshot:     $SNAPSHOT_ID
+Volume:       $VOLUME_ID
+EC2 instance: $TARGET_INSTANCE_ID
+AZ:           $AZ
+AWS device:   $DEVICE
 
-  if [[ -b "$ATTACH_DEVICE" ]]; then
-    BLOCK_DEVICE="$ATTACH_DEVICE"
-    break
-  fi
+Next, log in to $TARGET_INSTANCE_ID and use lsblk to find the actual Linux block device.
+On Nitro instances it will usually appear as /dev/nvme*n1 rather than $DEVICE.
 
-  command -v udevadm >/dev/null 2>&1 && sudo udevadm settle >/dev/null 2>&1 || true
-  sleep 1
-done
-
-[[ -n "$BLOCK_DEVICE" && -b "$BLOCK_DEVICE" ]] || {
-  lsblk -o NAME,SIZE,FSTYPE,TYPE,SERIAL,MOUNTPOINTS >&2 || true
-  die "could not see $VOLUME_ID locally. Run this script on the selected target EC2 instance: $TARGET_INSTANCE_ID"
-}
-
-log "Attached block device: $BLOCK_DEVICE"
-lsblk -f "$BLOCK_DEVICE" >&2
-
-# Refuse LVM automatically. Activating cloned VGs can collide with host VG/LV
-# names and UUIDs. It is safer to make that an explicit future feature.
-if lsblk -nrpo FSTYPE "$BLOCK_DEVICE" | grep -qx 'LVM2_member'; then
-  die "LVM-backed root filesystems are not supported automatically"
-fi
-
-# The AMI root disk may be partitioned (for example: EFI + root). Pick the
-# largest filesystem from the attached disk among the supported Linux types.
-ROOT_FS_DEVICE="$(lsblk -b -nrpo NAME,FSTYPE,SIZE "$BLOCK_DEVICE" \
-  | awk '$2 ~ /^(ext2|ext3|ext4|xfs|btrfs)$/ { print $1, $3 }' \
-  | sort -k2,2nr \
-  | awk 'NR == 1 { print $1 }')"
-
-[[ -n "$ROOT_FS_DEVICE" && -b "$ROOT_FS_DEVICE" ]] || {
-  lsblk -f "$BLOCK_DEVICE" >&2 || true
-  die "could not find a supported root filesystem on $BLOCK_DEVICE"
-}
-
-FSTYPE="$(lsblk -dn -o FSTYPE "$ROOT_FS_DEVICE")"
-log "Root filesystem: $ROOT_FS_DEVICE ($FSTYPE)"
-
-log "Mounting root filesystem read-only at $MOUNT_DIR"
-case "$FSTYPE" in
-  ext2|ext3|ext4)
-    # noload prevents journal replay from writing to the temporary EBS volume.
-    sudo mount -t "$FSTYPE" -o ro,noload "$ROOT_FS_DEVICE" "$MOUNT_DIR"
-    ;;
-  xfs)
-    # Snapshot copies can share the source filesystem UUID. nouuid avoids a
-    # duplicate-UUID mount failure; norecovery keeps the mount read-only.
-    sudo mount -t xfs -o ro,nouuid,norecovery "$ROOT_FS_DEVICE" "$MOUNT_DIR"
-    ;;
-  btrfs)
-    sudo mount -t btrfs -o ro "$ROOT_FS_DEVICE" "$MOUNT_DIR"
-    ;;
-  *)
-    die "unsupported filesystem: $FSTYPE"
-    ;;
-esac
-MOUNTED=1
-
-# Sanity check: avoid importing an accidentally selected boot/EFI partition.
-[[ -d "$MOUNT_DIR/etc" && -d "$MOUNT_DIR/usr" ]] || \
-  die "mounted filesystem does not look like a Linux root filesystem"
-
-log "Importing filesystem as Docker image $IMAGE"
-sudo tar \
-  --numeric-owner \
-  --acls \
-  --xattrs \
-  --xattrs-include='*' \
-  --one-file-system \
-  --exclude='./proc/*' \
-  --exclude='./sys/*' \
-  --exclude='./dev/*' \
-  --exclude='./run/*' \
-  --exclude='./tmp/*' \
-  --exclude='./var/lib/docker/*' \
-  --exclude='./var/lib/containerd/*' \
-  -C "$MOUNT_DIR" \
-  -cpf - . \
-| docker image import \
-    --platform "$PLATFORM" \
-    --change 'CMD ["/bin/bash"]' \
-    - "$IMAGE"
-
-log "Docker image created successfully"
-docker image inspect "$IMAGE" \
-  --format 'Image={{index .RepoTags 0}} OS={{.Os}} Arch={{.Architecture}} Size={{.Size}}'
+This script intentionally leaves the EBS volume attached and does not delete it.
+EOF
