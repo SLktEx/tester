@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Prepare the root filesystem of an EBS-backed AMI for manual conversion on an
-# existing EC2 instance.
+# Prepare every EBS-backed filesystem captured by an AMI for manual conversion
+# on an existing EC2 instance.
 #
-# This script runs on your local machine. It only uses the AWS API:
-#   AMI -> root snapshot -> EBS volume -> attach to selected EC2 -> stop
+# This script runs on your local machine and only uses the AWS API:
+#   AMI -> all EBS snapshots -> EBS volumes -> attach to selected EC2 -> stop
 #
-# It does NOT SSH into the instance, mount the filesystem, or run Docker.
+# It does NOT SSH into the instance, mount filesystems, or run Docker.
 #
 # Usage:
 #   ./tools/ami-to-docker.sh <ami-id> <target-instance-id>
@@ -21,9 +21,9 @@ set -Eeuo pipefail
 # Environment:
 #   AWS_REGION=ap-northeast-1  Region containing both the AMI and target EC2.
 #                              Falls back to AWS_DEFAULT_REGION / AWS CLI config.
-#   VOLUME_TYPE=gp3            EBS type to create (default: gp3).
-#   ATTACH_DEVICE=/dev/sdf     AWS attachment name. If omitted, the first free
-#                              name from /dev/sdf through /dev/sdp is selected.
+#   VOLUME_TYPE=gp3            Optional override applied to every created EBS
+#                              volume. If omitted, each AMI mapping's original
+#                              volume type is preserved.
 #
 # Requirements:
 #   aws cli with permissions for DescribeImages, DescribeInstances,
@@ -39,13 +39,13 @@ Example:
     ./tools/ami-to-docker.sh ami-0123456789abcdef0 i-0123456789abcdef0
 
 What it does:
-  1. Finds the AMI root EBS snapshot.
+  1. Finds every EBS snapshot in the AMI block-device mappings.
   2. Finds the selected EC2 instance's Availability Zone.
-  3. Creates an EBS volume from the snapshot in that AZ.
-  4. Attaches the EBS volume to the selected EC2 instance.
-  5. Prints the IDs/device name and exits.
+  3. Creates one EBS volume per AMI snapshot in that AZ.
+  4. Attaches every created volume to the selected EC2 instance.
+  5. Prints source-device -> snapshot -> volume -> attachment-device mappings.
 
-It does NOT mount the EBS volume or run Docker.
+It does NOT mount the EBS volumes or run Docker.
 EOF
 }
 
@@ -67,7 +67,7 @@ fi
 
 AMI_ID="$1"
 TARGET_INSTANCE_ID="$2"
-VOLUME_TYPE="${VOLUME_TYPE:-gp3}"
+VOLUME_TYPE_OVERRIDE="${VOLUME_TYPE:-}"
 
 [[ "$AMI_ID" == ami-* ]] || die "invalid AMI id: $AMI_ID"
 [[ "$TARGET_INSTANCE_ID" == i-* ]] || die "invalid EC2 instance id: $TARGET_INSTANCE_ID"
@@ -93,7 +93,7 @@ read -r AZ INSTANCE_STATE < <(
 
 case "$INSTANCE_STATE" in
   running|stopped) ;;
-  *) die "target EC2 instance cannot accept the volume in state: $INSTANCE_STATE" ;;
+  *) die "target EC2 instance cannot accept volumes in state: $INSTANCE_STATE" ;;
 esac
 
 log "Target instance: $TARGET_INSTANCE_ID"
@@ -101,7 +101,7 @@ log "State:           $INSTANCE_STATE"
 log "Region:          $REGION"
 log "AZ:              $AZ"
 
-log "Reading AMI root device"
+log "Reading AMI block-device mappings"
 read -r ROOT_DEVICE ROOT_TYPE < <(
   aws ec2 describe-images \
     --region "$REGION" \
@@ -115,116 +115,182 @@ read -r ROOT_DEVICE ROOT_TYPE < <(
 [[ "$ROOT_TYPE" == ebs ]] || \
   die "AMI root device is not EBS-backed: $ROOT_TYPE"
 
-SNAPSHOT_ID="$(
+# One line per EBS-backed AMI mapping:
+#   source-device snapshot-id volume-type volume-size iops throughput
+# Ephemeral/instance-store mappings and NoDevice entries are intentionally
+# ignored because they have no EBS snapshot to restore.
+mapfile -t AMI_MAPPINGS < <(
   aws ec2 describe-images \
     --region "$REGION" \
     --image-ids "$AMI_ID" \
-    --query "Images[0].BlockDeviceMappings[?DeviceName=='${ROOT_DEVICE}'].Ebs.SnapshotId | [0]" \
+    --query 'Images[0].BlockDeviceMappings[?Ebs.SnapshotId!=`null`].[DeviceName,Ebs.SnapshotId,Ebs.VolumeType,Ebs.VolumeSize,Ebs.Iops,Ebs.Throughput]' \
     --output text
-)"
+)
 
-[[ -n "$SNAPSHOT_ID" && "$SNAPSHOT_ID" != None ]] || \
-  die "root EBS snapshot not found for $AMI_ID"
+[[ ${#AMI_MAPPINGS[@]} -gt 0 ]] || \
+  die "AMI has no EBS snapshots: $AMI_ID"
 
 log "AMI:             $AMI_ID"
 log "AMI root device: $ROOT_DEVICE"
-log "Root snapshot:   $SNAPSHOT_ID"
+log "EBS snapshots:   ${#AMI_MAPPINGS[@]}"
 
-if [[ -n "${ATTACH_DEVICE:-}" ]]; then
-  DEVICE="$ATTACH_DEVICE"
-else
-  # Pick a free API-level attachment name. Nitro instances will normally expose
-  # the EBS volume inside Linux as /dev/nvme*n1 instead of this /dev/sdX name.
-  mapfile -t USED_DEVICES < <(
-    aws ec2 describe-instances \
-      --region "$REGION" \
-      --instance-ids "$TARGET_INSTANCE_ID" \
-      --query 'Reservations[0].Instances[0].BlockDeviceMappings[].DeviceName' \
-      --output text | tr '\t' '\n'
-  )
+# Read the target's currently occupied API-level device names once and reserve
+# free names from /dev/sdf through /dev/sdp for the volumes we are about to add.
+declare -A USED_DEVICES=()
+while IFS= read -r current; do
+  [[ -n "$current" && "$current" != None ]] || continue
+  USED_DEVICES["$current"]=1
 
-  DEVICE=""
-  for suffix in f g h i j k l m n o p; do
-    candidate="/dev/sd${suffix}"
-    used=0
-    for current in "${USED_DEVICES[@]:-}"; do
-      if [[ "$current" == "$candidate" || "$current" == "/dev/xvd${suffix}" ]]; then
-        used=1
-        break
-      fi
-    done
-    if [[ "$used" == 0 ]]; then
-      DEVICE="$candidate"
-      break
-    fi
-  done
+  # Treat the sdX/xvdX aliases as equivalent for collision avoidance.
+  if [[ "$current" =~ ^/dev/sd([a-z]+)$ ]]; then
+    USED_DEVICES["/dev/xvd${BASH_REMATCH[1]}"]=1
+  elif [[ "$current" =~ ^/dev/xvd([a-z]+)$ ]]; then
+    USED_DEVICES["/dev/sd${BASH_REMATCH[1]}"]=1
+  fi
+done < <(
+  aws ec2 describe-instances \
+    --region "$REGION" \
+    --instance-ids "$TARGET_INSTANCE_ID" \
+    --query 'Reservations[0].Instances[0].BlockDeviceMappings[].DeviceName' \
+    --output text | tr '\t' '\n'
+)
 
-  [[ -n "$DEVICE" ]] || \
-    die "no free attachment name found from /dev/sdf through /dev/sdp; set ATTACH_DEVICE explicitly"
+AVAILABLE_DEVICES=()
+for suffix in f g h i j k l m n o p; do
+  candidate="/dev/sd${suffix}"
+  if [[ -z "${USED_DEVICES[$candidate]:-}" && -z "${USED_DEVICES[/dev/xvd${suffix}]:-}" ]]; then
+    AVAILABLE_DEVICES+=("$candidate")
+  fi
+done
+
+if (( ${#AVAILABLE_DEVICES[@]} < ${#AMI_MAPPINGS[@]} )); then
+  die "AMI has ${#AMI_MAPPINGS[@]} EBS snapshots but only ${#AVAILABLE_DEVICES[@]} free attachment names are available from /dev/sdf through /dev/sdp"
 fi
 
-[[ "$DEVICE" == /dev/* ]] || die "ATTACH_DEVICE must be a /dev/... path"
+CREATED_VOLUMES=()
+SOURCE_DEVICES_OUT=()
+SNAPSHOTS_OUT=()
+VOLUMES_OUT=()
+ATTACH_DEVICES_OUT=()
 
-VOLUME_ID=""
 cleanup_failed_create() {
   local rc=$?
-  if [[ $rc -ne 0 && -n "$VOLUME_ID" ]]; then
-    printf '\nERROR: volume %s was created but the operation did not finish.\n' "$VOLUME_ID" >&2
-    printf 'It was NOT deleted automatically. Inspect it before cleanup.\n' >&2
+  trap - EXIT
+
+  if [[ $rc -ne 0 && ${#CREATED_VOLUMES[@]} -gt 0 ]]; then
+    printf '\nERROR: the operation stopped after creating EBS volume(s).\n' >&2
+    printf 'Nothing was deleted automatically. Inspect these volumes before cleanup:\n' >&2
+    printf '  %s\n' "${CREATED_VOLUMES[@]}" >&2
   fi
+
   exit "$rc"
 }
 trap cleanup_failed_create EXIT
 
-log "Creating $VOLUME_TYPE EBS volume from $SNAPSHOT_ID in $AZ"
-VOLUME_ID="$(
-  aws ec2 create-volume \
-    --region "$REGION" \
-    --snapshot-id "$SNAPSHOT_ID" \
-    --availability-zone "$AZ" \
-    --volume-type "$VOLUME_TYPE" \
-    --tag-specifications \
-      "ResourceType=volume,Tags=[{Key=Name,Value=ami-to-docker},{Key=ami-to-docker-source,Value=${AMI_ID}},{Key=ami-to-docker-target,Value=${TARGET_INSTANCE_ID}}]" \
-    --query VolumeId \
+for index in "${!AMI_MAPPINGS[@]}"; do
+  mapping="${AMI_MAPPINGS[$index]}"
+  read -r SOURCE_DEVICE SNAPSHOT_ID SOURCE_VOLUME_TYPE SOURCE_VOLUME_SIZE SOURCE_IOPS SOURCE_THROUGHPUT <<<"$mapping"
+
+  [[ "$SNAPSHOT_ID" == snap-* ]] || \
+    die "invalid snapshot id in AMI mapping for $SOURCE_DEVICE: $SNAPSHOT_ID"
+
+  DEVICE="${AVAILABLE_DEVICES[$index]}"
+  VOLUME_TYPE="${VOLUME_TYPE_OVERRIDE:-$SOURCE_VOLUME_TYPE}"
+
+  [[ -n "$VOLUME_TYPE" && "$VOLUME_TYPE" != None ]] || VOLUME_TYPE=gp3
+
+  create_args=(
+    ec2 create-volume
+    --region "$REGION"
+    --snapshot-id "$SNAPSHOT_ID"
+    --availability-zone "$AZ"
+    --volume-type "$VOLUME_TYPE"
+  )
+
+  # Respect an AMI mapping that expanded the volume beyond its snapshot's
+  # original size.
+  if [[ -n "$SOURCE_VOLUME_SIZE" && "$SOURCE_VOLUME_SIZE" != None ]]; then
+    create_args+=(--size "$SOURCE_VOLUME_SIZE")
+  fi
+
+  # When preserving the AMI's original volume type, also preserve tunables that
+  # are represented in the AMI mapping. If VOLUME_TYPE overrides the type, AWS
+  # defaults are used for the new type instead of applying incompatible values.
+  if [[ -z "$VOLUME_TYPE_OVERRIDE" ]]; then
+    case "$SOURCE_VOLUME_TYPE" in
+      gp3)
+        if [[ -n "$SOURCE_IOPS" && "$SOURCE_IOPS" != None ]]; then
+          create_args+=(--iops "$SOURCE_IOPS")
+        fi
+        if [[ -n "$SOURCE_THROUGHPUT" && "$SOURCE_THROUGHPUT" != None ]]; then
+          create_args+=(--throughput "$SOURCE_THROUGHPUT")
+        fi
+        ;;
+      io1|io2)
+        if [[ -n "$SOURCE_IOPS" && "$SOURCE_IOPS" != None ]]; then
+          create_args+=(--iops "$SOURCE_IOPS")
+        fi
+        ;;
+    esac
+  fi
+
+  create_args+=(
+    --tag-specifications
+    "ResourceType=volume,Tags=[{Key=Name,Value=ami-to-docker-${index}},{Key=ami-to-docker-source,Value=${AMI_ID}},{Key=ami-to-docker-target,Value=${TARGET_INSTANCE_ID}},{Key=ami-source-device,Value=${SOURCE_DEVICE}},{Key=ami-source-snapshot,Value=${SNAPSHOT_ID}}]"
+    --query VolumeId
     --output text
-)"
+  )
 
-[[ "$VOLUME_ID" == vol-* ]] || die "failed to create EBS volume"
+  log "[$((index + 1))/${#AMI_MAPPINGS[@]}] Creating $VOLUME_TYPE EBS volume from $SNAPSHOT_ID ($SOURCE_DEVICE)"
+  VOLUME_ID="$(aws "${create_args[@]}")"
+  [[ "$VOLUME_ID" == vol-* ]] || die "failed to create EBS volume from $SNAPSHOT_ID"
+  CREATED_VOLUMES+=("$VOLUME_ID")
 
-log "Created volume: $VOLUME_ID"
-log "Waiting for volume to become available"
-aws ec2 wait volume-available \
-  --region "$REGION" \
-  --volume-ids "$VOLUME_ID"
+  log "Waiting for $VOLUME_ID to become available"
+  aws ec2 wait volume-available \
+    --region "$REGION" \
+    --volume-ids "$VOLUME_ID"
 
-log "Attaching $VOLUME_ID to $TARGET_INSTANCE_ID as $DEVICE"
-aws ec2 attach-volume \
-  --region "$REGION" \
-  --volume-id "$VOLUME_ID" \
-  --instance-id "$TARGET_INSTANCE_ID" \
-  --device "$DEVICE" \
-  >/dev/null
+  log "Attaching $VOLUME_ID to $TARGET_INSTANCE_ID as $DEVICE"
+  aws ec2 attach-volume \
+    --region "$REGION" \
+    --volume-id "$VOLUME_ID" \
+    --instance-id "$TARGET_INSTANCE_ID" \
+    --device "$DEVICE" \
+    >/dev/null
 
-log "Waiting for attachment to complete"
-aws ec2 wait volume-in-use \
-  --region "$REGION" \
-  --volume-ids "$VOLUME_ID"
+  log "Waiting for $VOLUME_ID attachment to complete"
+  aws ec2 wait volume-in-use \
+    --region "$REGION" \
+    --volume-ids "$VOLUME_ID"
+
+  SOURCE_DEVICES_OUT+=("$SOURCE_DEVICE")
+  SNAPSHOTS_OUT+=("$SNAPSHOT_ID")
+  VOLUMES_OUT+=("$VOLUME_ID")
+  ATTACH_DEVICES_OUT+=("$DEVICE")
+done
 
 trap - EXIT
 
+printf '\nAttached all AMI EBS snapshots successfully.\n\n'
+printf 'AMI:          %s\n' "$AMI_ID"
+printf 'EC2 instance: %s\n' "$TARGET_INSTANCE_ID"
+printf 'AZ:           %s\n' "$AZ"
+printf 'Volumes:      %s\n\n' "${#VOLUMES_OUT[@]}"
+printf '%-14s %-24s %-24s %-12s\n' 'AMI device' 'Snapshot' 'New volume' 'AWS device'
+printf '%-14s %-24s %-24s %-12s\n' '----------' '--------' '----------' '----------'
+for index in "${!VOLUMES_OUT[@]}"; do
+  printf '%-14s %-24s %-24s %-12s\n' \
+    "${SOURCE_DEVICES_OUT[$index]}" \
+    "${SNAPSHOTS_OUT[$index]}" \
+    "${VOLUMES_OUT[$index]}" \
+    "${ATTACH_DEVICES_OUT[$index]}"
+done
+
 cat <<EOF
 
-Attached successfully.
+Next, log in to $TARGET_INSTANCE_ID and run lsblk to find the actual Linux block devices.
+On Nitro instances they will usually appear as /dev/nvme*n1 rather than the /dev/sdX names above.
 
-AMI:          $AMI_ID
-Snapshot:     $SNAPSHOT_ID
-Volume:       $VOLUME_ID
-EC2 instance: $TARGET_INSTANCE_ID
-AZ:           $AZ
-AWS device:   $DEVICE
-
-Next, log in to $TARGET_INSTANCE_ID and run lsblk to find the actual Linux block device.
-On Nitro instances it will usually appear as /dev/nvme*n1 rather than $DEVICE.
-
-This script intentionally leaves the EBS volume attached and does not delete it.
+This script intentionally leaves every created EBS volume attached and does not delete them.
 EOF
