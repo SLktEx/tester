@@ -4,25 +4,19 @@ set -Eeuo pipefail
 # Prepare the root filesystem of an EBS-backed AMI for manual conversion on an
 # existing EC2 instance.
 #
-# This script is intentionally local-only: it uses the AWS API to find the AMI
-# root snapshot, creates an EBS volume in the target instance's Availability
-# Zone, and attaches that volume to the selected EC2 instance. It does NOT SSH
-# into the instance, mount the filesystem, or run Docker.
+# This script runs on your local machine. It only uses the AWS API:
+#   AMI -> root snapshot -> EBS volume -> attach to selected EC2 -> stop
 #
-# Flow:
-#   local machine
-#     -> AMI root snapshot
-#     -> create EBS in target EC2 AZ
-#     -> attach EBS to selected EC2
-#     -> stop
+# It does NOT SSH into the instance, mount the filesystem, or run Docker.
 #
 # Usage:
 #   ./tools/ami-to-docker.sh <ami-id> <target-instance-id>
 #
 # Example:
-#   ./tools/ami-to-docker.sh \
-#     ami-0123456789abcdef0 \
-#     i-0123456789abcdef0
+#   AWS_REGION=ap-northeast-1 \
+#     ./tools/ami-to-docker.sh \
+#       ami-0123456789abcdef0 \
+#       i-0123456789abcdef0
 #
 # Environment:
 #   AWS_REGION=ap-northeast-1  Region containing both the AMI and target EC2.
@@ -33,7 +27,7 @@ set -Eeuo pipefail
 #
 # Requirements:
 #   aws cli with permissions for DescribeImages, DescribeInstances,
-#   CreateVolume, CreateTags/Tag-on-create, AttachVolume, and EBS waiters.
+#   CreateVolume, tag-on-create, AttachVolume, and EC2/EBS waiters.
 
 usage() {
   cat <<'EOF'
@@ -82,7 +76,8 @@ REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
 if [[ -z "$REGION" ]]; then
   REGION="$(aws configure get region 2>/dev/null || true)"
 fi
-[[ -n "$REGION" ]] || die "AWS region is not configured; set AWS_REGION or configure a default region"
+[[ -n "$REGION" ]] || \
+  die "AWS region is not configured; set AWS_REGION or configure a default region"
 
 log "Reading target EC2 instance"
 read -r AZ INSTANCE_STATE < <(
@@ -106,26 +101,14 @@ log "State:           $INSTANCE_STATE"
 log "Region:          $REGION"
 log "AZ:              $AZ"
 
-log "Reading AMI root EBS snapshot"
-read -r ROOT_DEVICE ROOT_TYPE SNAPSHOT_ID < <(
+log "Reading AMI root device"
+read -r ROOT_DEVICE ROOT_TYPE < <(
   aws ec2 describe-images \
     --region "$REGION" \
     --image-ids "$AMI_ID" \
-    --query 'Images[0].[RootDeviceName,RootDeviceType,BlockDeviceMappings[?DeviceName==`'"'"'"'"'"'"'`].Ebs.SnapshotId | [0]]' \
-    --output text 2>/dev/null || true
+    --query 'Images[0].[RootDeviceName,RootDeviceType]' \
+    --output text
 )
-
-# The nested JMESPath above is awkward to parameterize portably, so fetch the
-# root metadata and snapshot separately when necessary.
-if [[ -z "${ROOT_DEVICE:-}" || "$ROOT_DEVICE" == None ]]; then
-  read -r ROOT_DEVICE ROOT_TYPE < <(
-    aws ec2 describe-images \
-      --region "$REGION" \
-      --image-ids "$AMI_ID" \
-      --query 'Images[0].[RootDeviceName,RootDeviceType]' \
-      --output text
-  )
-fi
 
 [[ -n "$ROOT_DEVICE" && "$ROOT_DEVICE" != None ]] || \
   die "AMI not found or root device missing: $AMI_ID"
@@ -150,8 +133,8 @@ log "Root snapshot:   $SNAPSHOT_ID"
 if [[ -n "${ATTACH_DEVICE:-}" ]]; then
   DEVICE="$ATTACH_DEVICE"
 else
-  # Pick a free API-level EBS device name. On Nitro, Linux will normally expose
-  # the volume as /dev/nvme*n1 instead; this name is still used for AttachVolume.
+  # Pick a free API-level attachment name. Nitro instances will normally expose
+  # the EBS volume inside Linux as /dev/nvme*n1 instead of this /dev/sdX name.
   mapfile -t USED_DEVICES < <(
     aws ec2 describe-instances \
       --region "$REGION" \
@@ -240,7 +223,7 @@ EC2 instance: $TARGET_INSTANCE_ID
 AZ:           $AZ
 AWS device:   $DEVICE
 
-Next, log in to $TARGET_INSTANCE_ID and use lsblk to find the actual Linux block device.
+Next, log in to $TARGET_INSTANCE_ID and run lsblk to find the actual Linux block device.
 On Nitro instances it will usually appear as /dev/nvme*n1 rather than $DEVICE.
 
 This script intentionally leaves the EBS volume attached and does not delete it.
