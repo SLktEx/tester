@@ -5,22 +5,28 @@ set -Eeuo pipefail
 # launching the AMI.
 #
 # Flow:
-#   AMI -> root EBS snapshot -> temporary EBS volume -> attach to this EC2
+#   AMI -> root EBS snapshot -> temporary EBS volume -> attach to selected EC2
 #       -> read-only mount -> tar stream -> docker import -> detach/delete
 #
+# IMPORTANT:
+#   Run this script on the EC2 instance selected by <target-instance-id>.
+#   The target instance is never auto-detected; you must choose it explicitly.
+#
 # Usage:
-#   ./tools/ami-to-docker.sh ami-0123456789abcdef0 my-image:latest
+#   ./tools/ami-to-docker.sh \
+#     ami-0123456789abcdef0 \
+#     i-0123456789abcdef0 \
+#     my-image:latest
 #
 # Optional environment variables:
-#   AWS_REGION=ap-northeast-1   Override region detection.
-#   TARGET_INSTANCE_ID=i-...    Attach to a specific EC2 instance instead of
-#                               the current instance discovered through IMDSv2.
+#   AWS_REGION=ap-northeast-1   AWS region containing the AMI and target EC2.
+#                               Falls back to AWS_DEFAULT_REGION / AWS CLI config.
 #   KEEP_VOLUME=1               Keep the temporary EBS volume after completion.
 #   VOLUME_TYPE=gp3             Temporary EBS volume type (default: gp3).
 #   ATTACH_DEVICE=/dev/sdf      AWS API attachment name (default: /dev/sdf).
 #
 # Requirements:
-#   aws cli, docker, GNU tar, curl, lsblk, mount/umount
+#   aws cli, docker, GNU tar, lsblk, mount/umount
 #
 # Notes:
 #   - The target EC2 instance must be in the same Availability Zone as the
@@ -35,16 +41,22 @@ set -Eeuo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ami-to-docker.sh <ami-id> <docker-image[:tag]>
+  ami-to-docker.sh <ami-id> <target-instance-id> <docker-image[:tag]>
 
 Example:
-  ./tools/ami-to-docker.sh ami-0123456789abcdef0 ubuntu-from-ami:latest
+  ./tools/ami-to-docker.sh \
+    ami-0123456789abcdef0 \
+    i-0123456789abcdef0 \
+    ubuntu-from-ami:latest
+
+The target EC2 instance is always explicit. There is no automatic current-instance
+selection. Run this script on the same EC2 instance you pass as target-instance-id,
+because the mounted EBS block device and Docker daemon are accessed locally.
 
 Environment:
-  AWS_REGION            AWS region override
-  TARGET_INSTANCE_ID    EC2 instance that receives the temporary EBS volume
-  KEEP_VOLUME=1         Do not delete the temporary EBS volume
-  VOLUME_TYPE=gp3       Temporary EBS volume type
+  AWS_REGION=ap-northeast-1
+  KEEP_VOLUME=1
+  VOLUME_TYPE=gp3
   ATTACH_DEVICE=/dev/sdf
 EOF
 }
@@ -62,24 +74,32 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
 }
 
-for cmd in aws docker tar curl lsblk mount umount awk sort sed grep; do
+for cmd in aws docker tar lsblk mount umount awk sort grep; do
   require_command "$cmd"
 done
 
-if [[ $# -ne 2 ]]; then
+if [[ $# -ne 3 ]]; then
   usage >&2
   exit 2
 fi
 
 AMI_ID="$1"
-IMAGE="$2"
+TARGET_INSTANCE_ID="$2"
+IMAGE="$3"
 VOLUME_TYPE="${VOLUME_TYPE:-gp3}"
 ATTACH_DEVICE="${ATTACH_DEVICE:-/dev/sdf}"
 KEEP_VOLUME="${KEEP_VOLUME:-0}"
 
 [[ "$AMI_ID" == ami-* ]] || die "invalid AMI id: $AMI_ID"
+[[ "$TARGET_INSTANCE_ID" == i-* ]] || die "invalid target EC2 instance id: $TARGET_INSTANCE_ID"
 [[ -n "$IMAGE" ]] || die "Docker image name must not be empty"
 [[ "$KEEP_VOLUME" == 0 || "$KEEP_VOLUME" == 1 ]] || die "KEEP_VOLUME must be 0 or 1"
+
+REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+if [[ -z "$REGION" ]]; then
+  REGION="$(aws configure get region 2>/dev/null || true)"
+fi
+[[ -n "$REGION" ]] || die "AWS region is not configured; set AWS_REGION or configure a default region"
 
 MOUNT_DIR="$(mktemp -d /tmp/ami-to-docker.XXXXXX)"
 VOLUME_ID=""
@@ -130,70 +150,17 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Fetch an IMDSv2 token only if metadata is needed. This keeps TARGET_INSTANCE_ID
-# usable from automation that already knows the destination instance.
-IMDS_TOKEN=""
-imds_token() {
-  if [[ -z "$IMDS_TOKEN" ]]; then
-    IMDS_TOKEN="$(curl -fsS --connect-timeout 2 --max-time 5 \
-      -X PUT \
-      -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' \
-      http://169.254.169.254/latest/api/token)" \
-      || die "failed to obtain an EC2 IMDSv2 token"
-  fi
-  printf '%s' "$IMDS_TOKEN"
-}
+log "Reading selected target instance"
+read -r AZ INSTANCE_STATE < <(
+  aws ec2 describe-instances \
+    --region "$REGION" \
+    --instance-ids "$TARGET_INSTANCE_ID" \
+    --query 'Reservations[0].Instances[0].[Placement.AvailabilityZone,State.Name]' \
+    --output text
+)
 
-imds_get() {
-  local path="$1"
-  local token
-  token="$(imds_token)"
-  curl -fsS --connect-timeout 2 --max-time 5 \
-    -H "X-aws-ec2-metadata-token: $token" \
-    "http://169.254.169.254/latest/meta-data/$path"
-}
-
-if [[ -z "${TARGET_INSTANCE_ID:-}" ]]; then
-  log "Detecting current EC2 instance through IMDSv2"
-  TARGET_INSTANCE_ID="$(imds_get instance-id)" \
-    || die "failed to detect current EC2 instance id"
-fi
-
-if [[ -z "${AWS_REGION:-}" ]]; then
-  # placement/region is available through IMDS on modern EC2. If the caller
-  # supplied TARGET_INSTANCE_ID while running on that EC2, this avoids relying
-  # on local AWS CLI config.
-  AWS_REGION="$(imds_get placement/region 2>/dev/null || true)"
-fi
-
-# If region is still unknown, let the AWS CLI resolve it from its normal config
-# and then read the target instance's AZ. A missing CLI region will fail here
-# with the normal AWS error instead of producing an incorrect region.
-REGION="${AWS_REGION:-}"
-
-aws_region_args=()
-if [[ -n "$REGION" ]]; then
-  aws_region_args=(--region "$REGION")
-fi
-
-log "Reading target instance placement"
-AZ="$(aws ec2 describe-instances \
-  "${aws_region_args[@]}" \
-  --instance-ids "$TARGET_INSTANCE_ID" \
-  --query 'Reservations[0].Instances[0].Placement.AvailabilityZone' \
-  --output text)"
-
-[[ -n "$AZ" && "$AZ" != None ]] || die "could not determine Availability Zone for $TARGET_INSTANCE_ID"
-
-if [[ -z "$REGION" ]]; then
-  # Availability Zones normally end in a letter, but local/wavelength zones do
-  # not follow a simple suffix rule. Ask the EC2 API for the region explicitly.
-  REGION="$(aws ec2 describe-availability-zones \
-    --zone-names "$AZ" \
-    --query 'AvailabilityZones[0].RegionName' \
-    --output text)"
-  [[ -n "$REGION" && "$REGION" != None ]] || die "could not determine region for AZ $AZ"
-fi
+[[ -n "$AZ" && "$AZ" != None ]] || die "target EC2 instance not found in $REGION: $TARGET_INSTANCE_ID"
+[[ "$INSTANCE_STATE" == running ]] || die "target EC2 instance must be running; current state: $INSTANCE_STATE"
 
 log "Target instance: $TARGET_INSTANCE_ID"
 log "Region:          $REGION"
@@ -237,7 +204,7 @@ VOLUME_ID="$(aws ec2 create-volume \
   --availability-zone "$AZ" \
   --volume-type "$VOLUME_TYPE" \
   --tag-specifications \
-    "ResourceType=volume,Tags=[{Key=Name,Value=ami-to-docker-temp},{Key=ami-to-docker-source,Value=${AMI_ID}}]" \
+    "ResourceType=volume,Tags=[{Key=Name,Value=ami-to-docker-temp},{Key=ami-to-docker-source,Value=${AMI_ID}},{Key=ami-to-docker-target,Value=${TARGET_INSTANCE_ID}}]" \
   --query VolumeId \
   --output text)"
 
@@ -248,7 +215,7 @@ aws ec2 wait volume-available \
   --region "$REGION" \
   --volume-ids "$VOLUME_ID"
 
-log "Attaching $VOLUME_ID to $TARGET_INSTANCE_ID as $ATTACH_DEVICE"
+log "Attaching $VOLUME_ID to selected instance $TARGET_INSTANCE_ID as $ATTACH_DEVICE"
 aws ec2 attach-volume \
   --region "$REGION" \
   --volume-id "$VOLUME_ID" \
@@ -274,7 +241,6 @@ for _ in $(seq 1 60); do
     break
   fi
 
-  # Xen device naming fallback. /dev/sdf may also appear as /dev/xvdf.
   attach_basename="${ATTACH_DEVICE#/dev/}"
   xen_device="/dev/xvd${attach_basename#sd}"
   if [[ -b "$xen_device" ]]; then
@@ -293,7 +259,7 @@ done
 
 [[ -n "$BLOCK_DEVICE" && -b "$BLOCK_DEVICE" ]] || {
   lsblk -o NAME,SIZE,FSTYPE,TYPE,SERIAL,MOUNTPOINTS >&2 || true
-  die "could not resolve Linux device for $VOLUME_ID"
+  die "could not see $VOLUME_ID locally. Run this script on the selected target EC2 instance: $TARGET_INSTANCE_ID"
 }
 
 log "Attached block device: $BLOCK_DEVICE"
