@@ -1,0 +1,47 @@
+services:
+  systemd:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["/sbin/init"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: app
+      PGUSER: app
+      PGPASSWORD: password
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+      - /var/lib/journal
+    security_opt:
+      - writable-cgroups=true
+    stop_signal: SIGRTMIN+3
+    healthcheck:
+      test: ["CMD-SHELL", "psql -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres-data:
