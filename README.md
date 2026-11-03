@@ -73,3 +73,7 @@ The Java extra owns `<leader>tt` in Java buffers for running the current test cl
 - `lua/config/keymaps.lua` — only custom shortcuts that intentionally differ from LazyVim defaults
 
 The setup keeps the core LazyVim starter layout and minimizes overrides so future LazyVim updates are easier to absorb.
+
+## Arch Linux on a Btrfs WSL root
+
+[Setup, verification and recovery](tools/wsl-arch-btrfs/README.md)
