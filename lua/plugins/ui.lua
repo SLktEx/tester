@@ -15,23 +15,13 @@ return {
 
 ]]
 
-      opts.notifier = opts.notifier or {}
-      opts.notifier.style = "compact"
-      opts.notifier.top_down = true
-
-      opts.indent = opts.indent or {}
-      opts.indent.indent = vim.tbl_deep_extend("force", opts.indent.indent or {}, { char = "│" })
-      opts.indent.scope = vim.tbl_deep_extend("force", opts.indent.scope or {}, { char = "│" })
-
       opts.input = opts.input or {}
       opts.input.icon = "󰅙 "
 
       opts.styles = opts.styles or {}
       opts.styles.notification = opts.styles.notification or {}
-      opts.styles.notification.border = true
       opts.styles.notification.wo = vim.tbl_deep_extend("force", opts.styles.notification.wo or {}, {
         winblend = 3,
-        wrap = false,
       })
 
       return opts
@@ -42,7 +32,6 @@ return {
     "akinsho/bufferline.nvim",
     opts = function(_, opts)
       opts.options = opts.options or {}
-      opts.options.always_show_bufferline = true
       opts.options.separator_style = "slant"
       opts.options.show_buffer_close_icons = false
       opts.options.show_close_icon = false
@@ -69,21 +58,43 @@ return {
         return decorated
       end
 
+      local function component_name(component)
+        if type(component) == "string" then
+          return component
+        end
+        if type(component) == "table" and type(component[1]) == "string" then
+          return component[1]
+        end
+      end
+
       local left = opts.sections and opts.sections.lualine_a
-      if left and left[1] then
-        left[1] = decorate(left[1], {
-          icon = "♥",
-          separator = { left = "", right = "" },
-          padding = { left = 1, right = 1 },
-        })
+      if left then
+        for index, component in ipairs(left) do
+          if component_name(component) == "mode" then
+            left[index] = decorate(component, {
+              icon = "♥",
+              separator = { left = "", right = "" },
+              padding = { left = 1, right = 1 },
+            })
+            break
+          end
+        end
       end
 
       local right = opts.sections and opts.sections.lualine_z
-      if right and #right > 0 then
-        right[#right] = decorate(right[#right], {
-          separator = { left = "", right = "" },
-          padding = { left = 1, right = 1 },
-        })
+      -- LazyVim currently exposes its clock as the only anonymous callable in
+      -- lualine_z, so lualine gives us no stable component name to match here.
+      -- Fail closed if upstream adds another z component rather than decorating
+      -- an arbitrary entry by position.
+      if right and #right == 1 then
+        local component = right[1]
+        local renderer = type(component) == "table" and component[1] or component
+        if type(renderer) == "function" then
+          right[1] = decorate(component, {
+            separator = { left = "", right = "" },
+            padding = { left = 1, right = 1 },
+          })
+        end
       end
 
       return opts
