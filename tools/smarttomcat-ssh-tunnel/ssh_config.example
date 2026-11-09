@@ -1,0 +1,11 @@
+# Example only. Copy and edit these lines in %USERPROFILE%\.ssh\config.
+# Do not commit private keys, passwords, real internal hostnames, or customer data.
+Host smarttomcat-db
+    HostName bastion.example.com
+    User your-ssh-user
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+    LocalForward 127.0.0.1:13306 db.internal.example:3306
+    ExitOnForwardFailure yes
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
