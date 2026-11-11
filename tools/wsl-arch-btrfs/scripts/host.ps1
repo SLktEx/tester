@@ -2,7 +2,15 @@ $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = '1'
 
 function Invoke-LabWsl {
-    & wsl.exe @args
+    # Start-Transcript can omit native stdout when the host redirects streams.
+    # Keep a separate explicit native log, without changing returned stdout.
+    $nativeLog=(Get-Variable -Name LabNativeLog -Scope Script -ErrorAction SilentlyContinue).Value
+    if ($nativeLog) { [IO.File]::AppendAllText($nativeLog,"COMMAND wsl.exe $($args -join ' ')`n") }
+    & wsl.exe @args | ForEach-Object {
+        if ($nativeLog) { [IO.File]::AppendAllText($nativeLog,"$_`n") }
+        $_
+    }
+    if ($nativeLog) { [IO.File]::AppendAllText($nativeLog,"EXIT $LASTEXITCODE`n") }
     if ($LASTEXITCODE -ne 0) { throw "wsl.exe failed (exit $LASTEXITCODE): $args" }
 }
 

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 repo=$1 inputs=$2 name=$3 instance=$4 marker=$5
+echo "Target: $name bootstrap/raw image; risk: configure root; rollback: saved settings and preboot archive"
+[[ ${6:-} == --apply ]] || { echo 'DRY RUN: add --apply'; exit 0; }
 [[ $WSL_DISTRO_NAME == "$name" && $(id -u) == 0 && $(findmnt -no FSTYPE /) == ext4 ]]
 [[ $instance =~ ^[0-9a-f-]{36}$ && $marker == /mnt/c/* ]]
 d=/var/lib/archbtrfs
@@ -65,7 +67,10 @@ if ! getent passwd arch >/dev/null; then useradd -m -u 1000 -s /bin/bash arch; f
 cp "$top/@/etc/wsl.conf" /etc/wsl.conf
 install -m0755 "$repo/scripts/mount.archbtrfs" /usr/sbin/mount.archbtrfs
 mkdir -p /archbtrfs-hook /mnt/c
-{ cat "$d/fstab.original"; printf '\nC: /mnt/c drvfs defaults 0 0\nnone /archbtrfs-hook archbtrfs defaults 0 0\n'; } >"$d/fstab.new"
+# WSL mount -a must invoke this early hook, but systemd must not try to
+# activate a nonexistent filesystem again after an intentional rescue fallback.
+# The custom target is never activated; this removes local-fs dependencies.
+{ cat "$d/fstab.original"; printf '\nC: /mnt/c drvfs defaults 0 0\nnone /archbtrfs-hook archbtrfs defaults,x-systemd.wanted-by=archbtrfs-manual.target 0 0\n'; } >"$d/fstab.new"
 install -m0644 "$d/fstab.new" /etc/fstab
 sync
 touch "$d/prepared"

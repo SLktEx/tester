@@ -1,0 +1,47 @@
+#!/bin/bash
+# CI-only early-boot experiment, not the production loop helper.
+set -euo pipefail
+d=/var/lib/archbtrfs
+[[ ${WSL2_DISTRO_NAME:-} == ArchBtrfs-Actions-* ]] || exit 1
+[[ $WSL2_DISTRO_NAME == "$(cat "$d/name")" ]]
+[[ -f $(cat "$d/marker") ]] || exit 0
+exec >>"$d/boot.log" 2>&1
+date -Is
+echo checking >"$d/actions-boot-state"
+[[ $(findmnt -nro FSTYPE /) == ext4 && -f $d/vhdx-mode ]]
+[[ -z $(losetup -j "$d/arch.img") ]]
+rc=0
+device=$(bash "$d/Find-ArchVhdxDevice.sh" "$(cat "$d/uuid")") || rc=$?
+if (( rc == 1 )); then
+    echo missing-vhdx >"$d/actions-boot-state"
+    echo 'VHDX absent: Debian rescue; request mount after interop, then restart from Windows'
+    exit 0
+fi
+(( rc == 0 ))
+if ! grep -qw btrfs /proc/filesystems; then
+    modules="/usr/lib/modules/$(uname -r)"
+    mkdir -p "$modules"
+    mount --bind "${WSL2_KERNEL_MODULES_MOUNT:?}" "$modules"
+    if ! modprobe btrfs; then umount "$modules"; exit 1; fi
+    umount "$modules"
+fi
+r="$d/root"
+! mountpoint -q "$r"
+mount -o subvol=@ "$device" "$r"
+trap 'rc=$?; umount -R "$r" || true; exit "$rc"' EXIT
+[[ $(findmnt -nro FSTYPE,UUID,FSROOT -T "$r") == "btrfs $(cat "$d/uuid") /@" ]]
+cmp -s "$r/etc/archbtrfs-instance" "$d/instance"
+[[ -x $r/usr/lib/systemd/systemd ]]
+mount --bind /etc/wsl.conf "$r/etc/wsl.conf"
+for p in /dev /sys /proc /run /init /mnt/c /wsl??????; do
+    mountpoint -q "$p" || continue
+    if [[ -d $p ]]; then mkdir -p "$r$p"; else touch "$r$p"; fi
+    mount --rbind "$p" "$r$p"
+    mount --make-rslave "$r$p"
+done
+echo pivot-ready >"$d/actions-boot-state"
+cd "$r"
+pivot_root . .bootstrap/old
+trap - EXIT
+cd /
+echo 'VHDX pivot completed'
