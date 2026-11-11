@@ -42,23 +42,23 @@
 
 | シナリオ | モック/構文 | Windows WSL実機 |
 |---|---|---|
-| 未接続 → task完了 → restart → Arch | PASS | NOT TESTED |
+| 未接続 → task完了 → restart → Arch | PASS | PASS（Actions専用fixture。production launcher未実装） |
 | 接続済み / Arch到達済みの冪等性 | PASS | NOT TESTED |
 | task失敗、未完了、古い結果 | PASS | NOT TESTED |
 | deviceが出ない / timeout / 昇格要求失敗 | PASS | NOT TESTED |
 | UUID形式、重複、loop/partition拒否、lsblk失敗 | PASS | NOT TESTED |
 | 再起動後1回の接続消失と再接続 | PASS | NOT TESTED |
 | 接続消失継続の回数制限 / pivot失敗 | PASS | NOT TESTED |
-| instance/UUID/PID1の判断 | PASS（偽データ） | NOT TESTED |
+| instance/UUID/PID1の判断 | PASS（偽データ） | PASS（Actions実VHDX root） |
 | task ACL/ユーザー/固定action、VHDX親dir保護 | NOT TESTED | NOT TESTED |
 | 二つのWindows launcher、ロック衝突 | NOT TESTED | NOT TESTED |
 | 全native callの期限、停止完了待ち | NOT TESTED | NOT TESTED |
-| raw変換、qemu-img compare、hash前後 | 構文PASS | PASS（手動Lab。汎用スクリプト全適用は未検証） |
+| raw変換、qemu-img compare、hash前後 | 構文PASS | PASS（手動Lab＋Actionsで変換スクリプト再実行） |
 | 自然なVM idle / host reboot後 | NOT TESTED | NOT TESTED |
 | 明示global shutdown | NOT TESTED | NOT FEASIBLE（既存環境を触らない今回の条件下） |
-| 初期/新規session、管理者/通常token、UNC | NOT TESTED | NOT TESTED |
-| systemd、WSLg GUI/音声、cmd.exe、code . | NOT TESTED | NOT TESTED |
-| snapshot、復旧、loopへの復帰 | NOT TESTED | NOT TESTED |
+| 初期/新規session、管理者/通常token、UNC | NOT TESTED | 管理者tokenの初期/新規session・UNCはPASS、通常tokenは未検証 |
+| systemd、WSLg GUI/音声、cmd.exe、code . | NOT TESTED | VHDXのsystemd・cmd.exeはPASS。GUI/IDEは未検証 |
+| snapshot、復旧、loopへの復帰 | NOT TESTED | VHDXのsnapshot/clone・Debian救援はPASS。snapshot起動復旧・loop復帰は未検証 |
 | 独立Clean構築、再実行、中断復旧 | NOT TESTED | NOT TESTED |
 
 ## 再実行コマンド
@@ -117,3 +117,32 @@ UUID/`@`照合に加えcanonical mount SOURCEとdiskを比較するテストへ�
 次runで実測値を出力し確認する。後続session/recoveryはこのrunでは未実行。
 さらにboot.logのUNC回収がdefault Linux userではroot専用dirを読めず失敗した。
 明示guest rootのread-only回収に直し、回収失敗が元のtest失敗を上書きしないようにした。
+
+実装根拠: Linux 6.18の [`btrfs_get_tree_super`](https://github.com/torvalds/linux/blob/v6.18/fs/btrfs/super.c#L1785)
+は `sget_fc(..., set_anon_super_fc)` を使う。mountの番号をdisk番号と等値比較しない。
+
+### 2段階起動・救援復帰の成功
+
+[修正後run 43082209812](https://github.com/SLktEx/tester/actions/runs/43082209812)
+は全5試験phaseがPASS。実装commit `4e2d9c69de38cf4c9b7378f55991100cb19b7a65`。
+新しいrunnerと専用distroで一から再構築し、前runの環境は再利用していない。
+
+- 未接続時は明示missing-vhdx状態でDebian/ext4、systemd running、failed unitsなし。
+- Debian interopから接続専用taskを実行し、今回の完了・結果0・期待deviceを確認。
+- 対象だけterminate→起動し、`/dev/sde[/@]`のArch/Btrfs rootへ到達。
+  `/etc`・`/usr`・`/var`・`/home`も期待UUIDのBtrfs `@`。
+- PID1は `/usr/lib/systemd/systemd`、PID1とsessionのroot inode一致、systemd running。
+- `wsl.conf` bind共有、原本loop未接続、`cmd.exe`、default/rootの独立session、UNCがPASS。
+- もう一度対象だけ再起動し、同じ検査がPASS。即時restartでのVHDX保持を実測した。
+  自然idleやWindows再起動を検査したという意味ではない。
+- enable marker退避→Debian/ext4救援→対象VHDXのみdetach→原本hash一致。
+
+実測はmount側 `0:48`、disk側 `8:64`。前runの番号比較の不適切さも確認できた。
+[ログ抜粋](logs/actions-vhdx-43082209812.txt)に成功行と実測値を保存した。
+詳細ログ・task XMLはrunのartifact（7日保持）にある。
+[同commitの単体CI](https://github.com/SLktEx/tester/actions/runs/43082209660)もPASS。
+
+**プロジェクト全体は未完成。** この実験fixtureを通常helper/launcherへ統合する作業、
+task ACL/非昇格token、並行・timeout・中断・自然idle、WSLg GUI/音声、`code .`、
+snapshotからの起動復旧、利用者向けVHDX setupと独立Cleanでの完全再現は残る。
+ユーザーのPCのWSL・UAC・VHDXには今回一切操作していない。
