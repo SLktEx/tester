@@ -78,4 +78,18 @@ source "$1" "$2"
             with self.subTest(script=script.name):
                 subprocess.run([BASH, '-n', bash_path(script)], check=True, capture_output=True)
 
+    def test_mutating_shell_entrypoints_default_to_dry_run(self):
+        cases = {
+            'scripts/prepare.sh': ['repo', 'inputs', 'ArchBtrfs-Fake', 'instance', 'marker'],
+            'scripts/finish.sh': ['repo', 'inputs', 'instance'],
+            'recovery/snapshot.sh': ['snapshot', 'test', 'instance'],
+            'recovery/uninstall.sh': ['instance'],
+            'tests/integration.sh': ['instance'],
+        }
+        for script, args in cases.items():
+            with self.subTest(script=script):
+                p=subprocess.run([BASH, bash_path(ROOT/script), *args], capture_output=True, text=True)
+                self.assertEqual(p.returncode,0,p.stderr)
+                self.assertIn('DRY RUN',p.stdout)
+
 if __name__ == '__main__': unittest.main(verbosity=2)

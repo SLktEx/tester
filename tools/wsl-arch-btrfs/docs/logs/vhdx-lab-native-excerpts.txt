@@ -1,0 +1,17 @@
+Actual native log excerpts. Personal paths and host headers omitted.
+SOURCE: guest conversion-trial.log
+mount: /var/lib/archbtrfs/convert-verify: fsconfig() failed: btrfs: Unknown parameter 'nologreplay'.
+/var/lib/archbtrfs/arch.img: OK
+qemu-img version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)
+Images are identical.
+/var/lib/archbtrfs/arch.img: OK
+PASS manual conversion; no mode change or disk attach
+
+SOURCE: tests/rescue.sh native output
+PASS Debian/ext4 rescue: systemd running; no failed units; raw image detached
+
+Observed earlier integration tool output (transcribed; PowerShell transcript omitted native stdout):
+glibc 2.44
+  Map State: IsViewable
+Microsoft Windows [Version 10.0.26300.9818]
+Connected extension host on Arch root: 2122

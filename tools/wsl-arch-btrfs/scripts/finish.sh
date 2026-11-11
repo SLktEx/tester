@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 repo=$1 inputs=$2 instance=$3
+echo "Target: Arch instance $instance; risk: install fixed packages; rollback: preserved bootstrap/image"
+[[ ${4:-} == --apply ]] || { echo 'DRY RUN: add --apply'; exit 0; }
 [[ $(cat /etc/archbtrfs-instance) == "$instance" && $(findmnt -no FSTYPE /) == btrfs ]]
 d=/.bootstrap/old/var/lib/archbtrfs
 [[ $(cat "$d/instance") == "$instance" ]]

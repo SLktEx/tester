@@ -2,7 +2,8 @@
 
 **VHDXの2段階起動は開発中です。** [設計・添付版の監査](docs/vhdx-two-stage.md) と
 [テスト結果・未検証一覧](docs/vhdx-verification.md) を参照してください。
-現時点では先行テストと安全性の修正のみで、VHDX実機・クリーン再現の完了は主張しません。
+新規Labでのloop基準測定・救援起動修正・VHDXへの変換は成功しています。
+VHDX起動・クリーン再現は未完了です。[実機試行記録](docs/vhdx-native-trials.md)を参照してください。
 以下は従来のraw/loop方式です。
 
 Windows PowerShell から専用の WSL2 登録を作り、通常起動した Arch Linux のルートに Btrfs を使う。起動基盤は Debian/ext4、Arch はその内部に置く 8 GiB のイメージに展開する。WSL が Windows 向けのファイル共有を開始する前にルートを切り替えるため、Windows から開いた新しいセッションと VS Code の WSL 拡張も Arch を参照する。
@@ -10,7 +11,8 @@ Windows PowerShell から専用の WSL2 登録を作り、通常起動した Arc
 このディレクトリを作業場所にして実行する。
 
 ```powershell
-.\setup.ps1
+.\setup.ps1 # dry-run
+.\setup.ps1 -Apply
 wsl -d ArchBtrfs-Clean --cd '~'
 ```
 

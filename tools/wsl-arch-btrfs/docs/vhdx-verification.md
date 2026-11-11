@@ -1,15 +1,19 @@
 # VHDX検証記録
 
-記録日: 2026-11-11。**未完成 / Draft。VHDX実機試験は承認待ち。**
+記録日: 2026-11-11。**未完成 / Draft。新規Lab作成は承認済み。VHDX接続はUAC本人操作待ち。**
 過去のloop方式の合格をVHDX方式の合格に転用しない。
+
+承認後の[実機試行・失敗修正・変換成功の記録](vhdx-native-trials.md)を追加した。
+最新の単体テストはBash 12件＋PowerShell 17件＝29件PASS、構文11ファイルPASS。
+以下の当初マトリクスで未検証としたVHDX起動/連携/復旧は、まだ合格していない。
 
 ## Phaseの実施状況
 
 | Phase | 状態 | 実施内容 |
 |---|---|---|
 | 調査・先行テスト | PASS（範囲限定） | ZIP指示・実装監査、公式資料/WSLソース、Windows read-only inventory、単体テスト |
-| 専用Labで手動試行 | NOT TESTED | 新規Lab/タスク/VHDXの承認待ち。既存登録は変更していない |
-| 成功手順のスクリプト化 | NOT TESTED | 純粋な状態機械と診断テストのみ。完成版setup/launcherは未作成 |
+| 専用Labで手動試行 | 一部PASS | 新規Labのloop基準測定、Debian救援修正、raw→VHDX変換成功。VHDX接続はUAC待ち |
+| 成功手順のスクリプト化 | 一部実施 | 変換成功手順と救援修正を反映。完成版VHDX setup/launcherは未作成 |
 | 別のClean環境で再現 | NOT TESTED | Lab成功前には作成しない |
 | WSLg/systemd/interop/VS Code/snapshot | NOT TESTED（VHDX） | 合格を主張しない |
 
@@ -49,7 +53,7 @@
 | task ACL/ユーザー/固定action、VHDX親dir保護 | NOT TESTED | NOT TESTED |
 | 二つのWindows launcher、ロック衝突 | NOT TESTED | NOT TESTED |
 | 全native callの期限、停止完了待ち | NOT TESTED | NOT TESTED |
-| raw変換、qemu-img compare、hash前後 | NOT TESTED | NOT TESTED |
+| raw変換、qemu-img compare、hash前後 | 構文PASS | PASS（手動Lab。汎用スクリプト全適用は未検証） |
 | 自然なVM idle / host reboot後 | NOT TESTED | NOT TESTED |
 | 明示global shutdown | NOT TESTED | NOT FEASIBLE（既存環境を触らない今回の条件下） |
 | 初期/新規session、管理者/通常token、UNC | NOT TESTED | NOT TESTED |
