@@ -3,7 +3,10 @@ name: Arch VHDX native WSL2 experiment
 on:
   pull_request:
     paths:
-      - 'tools/wsl-arch-btrfs/**'
+      - 'tools/wsl-arch-btrfs/scripts/**'
+      - 'tools/wsl-arch-btrfs/tests/**'
+      - 'tools/wsl-arch-btrfs/recovery/**'
+      - 'tools/wsl-arch-btrfs/setup.ps1'
       - '.github/workflows/arch-vhdx-native.yml'
   workflow_dispatch:
 
@@ -30,12 +33,26 @@ jobs:
           New-Item -ItemType Directory -Path $base | Out-Null
           Copy-Item -LiteralPath "$env:GITHUB_WORKSPACE\tools\wsl-arch-btrfs" -Destination "$base\project" -Recurse
           "ARCHBTRFS_CI_BASE=$base" >> $env:GITHUB_ENV
-      - name: Build loop baseline, convert, attach real VHDX and test Btrfs snapshots
+      - name: Build fresh loop baseline and verify new sessions
+        timeout-minutes: 20
+        shell: pwsh
+        run: '& "$env:ARCHBTRFS_CI_BASE/project/tests/actions-native.ps1" -Phase Loop -Base $env:ARCHBTRFS_CI_BASE -Apply'
+      - name: Rescue boot, raw-to-VHDX conversion and idempotency
+        timeout-minutes: 10
+        shell: pwsh
+        run: '& "$env:ARCHBTRFS_CI_BASE/project/tests/actions-native.ps1" -Phase Convert -Base $env:ARCHBTRFS_CI_BASE -Apply'
+      - name: Attach real VHDX and test Btrfs snapshots
+        timeout-minutes: 3
         shell: pwsh
         run: '& "$env:ARCHBTRFS_CI_BASE/project/tests/actions-native.ps1" -Phase Disk -Base $env:ARCHBTRFS_CI_BASE -Apply'
       - name: Request mount-only scheduled task from Debian interop
+        timeout-minutes: 3
         shell: pwsh
         run: '& "$env:ARCHBTRFS_CI_BASE/project/tests/actions-native.ps1" -Phase Task -Base $env:ARCHBTRFS_CI_BASE -Apply'
+      - name: Missing disk rescue, two-stage VHDX root pivot and recovery
+        timeout-minutes: 5
+        shell: pwsh
+        run: '& "$env:ARCHBTRFS_CI_BASE/project/tests/actions-native.ps1" -Phase TwoStage -Base $env:ARCHBTRFS_CI_BASE -Apply'
       - name: Preserve diagnostics (never upload images, rootfs, or private keys)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

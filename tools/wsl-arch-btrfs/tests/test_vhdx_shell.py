@@ -73,7 +73,7 @@ source "$1" "$2"
             self.assertNotEqual(p.returncode,0); self.assertFalse(marker.exists())
 
     def test_shell_syntax(self):
-        scripts = sorted(ROOT.rglob('*.sh')) + [ROOT/'scripts/mount.archbtrfs']
+        scripts = sorted(ROOT.rglob('*.sh')) + [ROOT/'scripts/mount.archbtrfs', ROOT/'tests/fixtures/mount.archbtrfs-vhdx']
         for script in scripts:
             with self.subTest(script=script.name):
                 subprocess.run([BASH, '-n', bash_path(script)], check=True, capture_output=True)

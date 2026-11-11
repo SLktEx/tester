@@ -89,3 +89,23 @@ PowerShellのTask/Root/Request/Terminateも偽物。
 各root/namespace/PID1、自然idle前後のVM boot ID、Windows token種別、WSLg窓/音声、
 `code .`で接続したextensionHostのroot、snapshot内容差分、raw保全hash、Clean再実行ログ。
 失敗も削除せず、修正→手動で再試行→スクリプト化→別Clean再検証の順番を守る。
+
+## 2026-11-12 GitHub Actions実機試験（上の未検証表への追記）
+
+[初回run](https://github.com/SLktEx/tester/actions/runs/43078869822)はFAIL。
+未登録のWindows runnerで `wsl --list --verbose` が非zeroとなることを確認した。
+登録前はレジストリinventoryで空を判定するよう修正。
+
+[再試行run](https://github.com/SLktEx/tester/actions/runs/43079038923)はPASS。
+Windows Server 2025 10.0.26100.33674、WSL 3.0.3.0、kernel 6.18.54.1-1、
+WSLg 1.0.79。管理者token、GitHub-hosted runner。ユーザーのPCは操作していない。
+
+- PASS: 新規loop版構築、Arch/systemd、初期・新規session、UNC、Debian救援。
+- PASS: raw→VHDX実変換、qemu-img内容一致・raw hash保全、同じ変換の再実行。
+- PASS: `wsl --mount ... --vhd --bare`、実disk `/dev/sde` のUUID/instance照合。
+- PASS: 読取専用snapshot、書込可能cloneで内容復元（起動復旧とは別）。
+- PASS: Debian interop→実際のmount-only task、今回のLastRunTime、結果0、device可視性。
+- NOT TESTED（このrun）: VHDXからのroot起動、GUI/IDE、production ACL、通常token、完全Clean構築。
+
+次のroot pivot試験は [`actions-native.md`](actions-native.md) の手順を使う。
+実験fixtureと汎用setupの完成を混同しない。
