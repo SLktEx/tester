@@ -121,11 +121,12 @@ try {
 } finally {
     if ($registered) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
     if ($Phase -eq 'TwoStage') {
-        # The same boot log lives at one of these paths depending on pivot state.
-        foreach ($guestLog in '/var/lib/archbtrfs/boot.log','/.bootstrap/old/var/lib/archbtrfs/boot.log') {
-            $unc="\\wsl.localhost\$name"+$guestLog.Replace('/','\')
-            if (Test-Path -LiteralPath $unc) { Copy-Item -LiteralPath $unc -Destination (Join-Path $evidence 'pivot-boot.log') }
-        }
+        # UNC uses the default Linux user and cannot read the protected old root.
+        # Collect with explicit guest root; never mask the original test failure.
+        try {
+            Invoke-LabWsl -d $name -u root --cd / --exec /bin/sh -c 'for f in /var/lib/archbtrfs/boot.log /.bootstrap/old/var/lib/archbtrfs/boot.log; do if [ -f "$f" ]; then cat "$f"; fi; done' |
+                Set-Content -LiteralPath (Join-Path $evidence 'pivot-boot.log')
+        } catch { Write-Warning "Boot-log collection failed: $_" }
     }
     # Preserve text evidence only. No distro shutdown/unregister or image deletion.
     if (Test-Path -LiteralPath $labs) {

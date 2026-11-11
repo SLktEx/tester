@@ -30,8 +30,9 @@ d=/.bootstrap/old/var/lib/archbtrfs
 [ "$(cat /etc/archbtrfs-instance)" = "$instance" ]
 uuid=$(cat "$d/uuid")
 dev=$("/.bootstrap/old/usr/local/sbin/archvhdx-find-device" "$uuid")
-rootdev=$(findmnt -nro MAJ:MIN /)
-[ "$(lsblk -dnro MAJ:MIN "$dev")" = "$rootdev" ]
+rootdev=$(findmnt -nro SOURCE /)
+rootdev=${rootdev%%\[*}
+[ "$(readlink -f "$dev")" = "$(readlink -f "$rootdev")" ]
 printf 'PASS root-device=%s UUID=%s root=%s init-root=%s\n' "$dev" "$uuid" "$(stat -Lc '%d:%i' /)" "$(stat -Lc '%d:%i' /proc/1/root)"
 printf 'mount-namespace=%s PID1-namespace=%s\n' "$(readlink /proc/self/ns/mnt)" "$(readlink /proc/1/ns/mnt)"
 '@

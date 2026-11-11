@@ -109,3 +109,11 @@ WSLg 1.0.79。管理者token、GitHub-hosted runner。ユーザーのPCは操作
 
 次のroot pivot試験は [`actions-native.md`](actions-native.md) の手順を使う。
 実験fixtureと汎用setupの完成を混同しない。
+
+[root試験初回](https://github.com/SLktEx/tester/actions/runs/43080871969)はFAIL。
+未接続時Debian救援、task接続、対象restart後のArch/glibc・Btrfs `@`・systemdは通過したが、
+追加のdevice判定で停止。Btrfsの匿名superblock番号と実diskのMAJ:MINを等値比較していたため、
+UUID/`@`照合に加えcanonical mount SOURCEとdiskを比較するテストへ修正した。
+次runで実測値を出力し確認する。後続session/recoveryはこのrunでは未実行。
+さらにboot.logのUNC回収がdefault Linux userではroot専用dirを読めず失敗した。
+明示guest rootのread-only回収に直し、回収失敗が元のtest失敗を上書きしないようにした。
