@@ -30,7 +30,10 @@ $taskName="WSL-Arch-Actions-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
 $registered=$false
 try {
     Invoke-LabWsl --version
-    Invoke-LabWsl --list --verbose
+    $existing=@(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss\*' -ErrorAction SilentlyContinue |
+        Where-Object DistributionName)
+    if ($existing.Count) { Invoke-LabWsl --list --verbose }
+    else { Write-Host 'Fresh runner: no installed distributions (expected before import)' }
     Write-Host "Administrator=True; Windows=$([Environment]::OSVersion.Version); Image=$env:ImageVersion"
     if ($Phase -eq 'Disk') {
         & "$project/setup.ps1" -Name $name -Base $labs -Apply
