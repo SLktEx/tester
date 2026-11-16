@@ -21,9 +21,11 @@ A real LazyVim config that recreates the lavender / dusty-pink editor mockup usi
 - Git >= 2.19
 - Nerd Font v3+
 - `ripgrep`, `fd`, `curl`
-- `tree-sitter-cli` + a C compiler
+- `tree-sitter-cli >= 0.26.1` + a C compiler
 - `lazygit` (optional, for the Lazygit shortcuts)
 - a JDK for Java development
+
+`nvim-treesitter` requires `tree-sitter-cli >= 0.26.1`, including the compatibility commit LazyVim currently uses on Neovim 0.11. Distribution packages can lag behind that version, so check `tree-sitter --version` if parser installation or `:checkhealth` reports a problem.
 
 ## Install
 
@@ -43,11 +45,26 @@ git clone https://github.com/SLktEx/tester.git ~/.config/nvim
 nvim
 ```
 
-On first launch, lazy.nvim will install the plugins. Then run:
+On first launch, lazy.nvim installs the plugins. Then run:
 
 ```vim
 :LazyHealth
 ```
+
+## Plugin versions and updates
+
+`lazy-lock.json` records the resolved plugin commits so an existing known-good set can be restored. It does not make a first install completely self-contained: Git/remotes, Neovim, external tools, Mason packages, parsers, compilers, and language runtimes still come from outside the lockfile.
+
+Useful lazy.nvim commands:
+
+```vim
+:Lazy restore
+:Lazy update
+```
+
+- `:Lazy restore` restores plugins to the commits recorded in `lazy-lock.json`.
+- `:Lazy update` updates plugins and refreshes the lockfile.
+- LazyVim extras are tracked in `lazyvim.json` and can be managed with `:LazyExtras`.
 
 ## Useful keys
 
@@ -63,10 +80,11 @@ On first launch, lazy.nvim will install the plugins. Then run:
 | `<leader>gg` | Lazygit at the Git root |
 | `<leader>gG` | Lazygit at the current working directory |
 
-The Java extra owns `<leader>tt` in Java buffers for running the current test class, so the custom terminal shortcut intentionally lives on `<leader>z`.
+The Java extra does not unconditionally own `<leader>tt`. LazyVim registers its Java buffer-local `<leader>tt` (`Run All Test`) only after `jdtls` attaches and the DAP / Java debug / Java test pieces it depends on are available. This config enables the Java extra but does not enable LazyVim's DAP core extra, so a fresh install does not reserve `<leader>tt` for Java tests. The custom terminal shortcut intentionally remains on `<leader>z`.
 
 ## Main customization files
 
+- `lazyvim.json` — LazyVim extras managed through the same mechanism as `:LazyExtras`
 - `lua/plugins/colorscheme.lua` — lavender / pink palette
 - `lua/plugins/ui.lua` — dashboard, notifications, tabs, statusline, Noice, Trouble
 - `lua/config/options.lua` — only editor options that intentionally differ from LazyVim defaults
