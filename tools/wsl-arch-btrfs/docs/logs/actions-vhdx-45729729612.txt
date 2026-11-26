@@ -1,0 +1,24 @@
+Selected GitHub-hosted native evidence (not full logs).
+Run: https://github.com/SLktEx/tester/actions/runs/45729729612
+Commit: 6d3c8d0d518cc78dc740f7b01971ef0d6af20f35
+All five native phases and the job completed successfully.
+2026-11-26T00:34:51.2368996Z WSL version: 3.0.5.0
+2026-11-26T00:34:51.2375055Z Kernel version: 6.18.58.1-1
+2026-11-26T00:34:51.2558883Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:37:26.1188108Z WSL version: 3.0.5.0
+2026-11-26T00:37:26.1206275Z Kernel version: 6.18.58.1-1
+2026-11-26T00:37:26.2275273Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:39:40.7175966Z WSL version: 3.0.5.0
+2026-11-26T00:39:40.7180104Z Kernel version: 6.18.58.1-1
+2026-11-26T00:39:40.7679433Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:39:50.3157251Z WSL version: 3.0.5.0
+2026-11-26T00:39:50.3161416Z Kernel version: 6.18.58.1-1
+2026-11-26T00:39:50.3669749Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:39:53.8718046Z WSL version: 3.0.5.0
+2026-11-26T00:39:53.8722153Z Kernel version: 6.18.58.1-1
+2026-11-26T00:39:53.9235309Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:40:12.9205927Z PASS existing immutable bundle
+2026-11-26T00:40:13.4048603Z INJECTED STOP; Debian rescue retained
+2026-11-26T00:40:13.6466255Z PASS restore committed; previous root and nested subvolumes retained
+2026-11-26T00:40:13.8370745Z PASS restore already committed; old root retained
+2026-11-26T00:40:13.8808659Z PASS native bundle: deep nested content restored, old content retained, snapshot twice, interrupted restore, resumed restore twice, mounts released

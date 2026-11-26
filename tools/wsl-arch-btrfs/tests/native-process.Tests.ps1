@@ -4,9 +4,11 @@ $ErrorActionPreference='Stop'
 $directory=Join-Path ([IO.Path]::GetTempPath()) ('archbtrfs-process-'+[guid]::NewGuid())
 [IO.Directory]::CreateDirectory($directory) | Out-Null
 $child=Join-Path $directory 'child.ps1'
+$lockChild=Join-Path $directory 'lock-child.ps1'
 $lockPath=Join-Path $directory 'operation.lock'
 try {
     [IO.File]::WriteAllText($child,'[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); ConvertTo-Json -Compress -InputObject @($args)')
+    [IO.File]::WriteAllText($lockChild,'$ErrorActionPreference="Stop"; . $args[0]; try { $held=Enter-ArchOperationLock $args[1]; $held.Dispose(); exit 0 } catch { exit 23 }')
     $pwsh=(Get-Process -Id $PID).Path
     $values=@('space value','quote"value','', '日本語', 'literal $() ` ;')
     $result=Invoke-ArchNative -FilePath $pwsh -ArgumentList (@('-NoProfile','-File',$child)+$values) -TimeoutSeconds 10
@@ -30,10 +32,12 @@ try {
         $failed=$false
         try{$second=Enter-ArchOperationLock $lockPath; $second.Dispose()}catch{$failed=$true}
         if(!$failed){throw 'Concurrent caller acquired lock'}
+        $result=Invoke-ArchNative -FilePath $pwsh -ArgumentList @('-NoProfile','-File',$lockChild,"$PSScriptRoot/../scripts/Native-Process.ps1",$lockPath) -AllowedExitCodes @(23) -TimeoutSeconds 10
     }finally{$first.Dispose()}
     $third=Enter-ArchOperationLock $lockPath; $third.Dispose()
-    Write-Host 'PASS concurrent lock rejected; release permits retry'
+    $result=Invoke-ArchNative -FilePath $pwsh -ArgumentList @('-NoProfile','-File',$lockChild,"$PSScriptRoot/../scripts/Native-Process.ps1",$lockPath) -TimeoutSeconds 10
+    Write-Host 'PASS concurrent lock rejected in separate process; release permits retry'
 }finally{
-    foreach($file in $child,$lockPath){if(Test-Path -LiteralPath $file){Remove-Item -LiteralPath $file}}
+    foreach($file in $child,$lockChild,$lockPath){if(Test-Path -LiteralPath $file){Remove-Item -LiteralPath $file}}
     [IO.Directory]::Delete($directory,$false)
 }

@@ -6,6 +6,8 @@
 Actions専用の実験処理でVHDX root起動・再起動・Debian救援復帰まで成功しています。
 ローカル専用Labでも、UAC接続・VHDX root・非昇格session・WSLg表示判定・`code .`・救援往復を確認しました。
 [2026-11-26の実機結果と復旧](docs/vhdx-local-20261126.md)を参照してください。
+入れ子のサブボリュームを含む[オフライン復旧バンドル](docs/vhdx-recovery-bundles.md)も追加しました。
+専用Labで中断からの復旧と再実行を検証済みです。VHDX setup全体の完成とは区別しています。
 利用者向けVHDX setup・自動再接続・完全なクリーン再現は未完了です。
 [実機試行記録](docs/vhdx-native-trials.md)と[Actions結果](docs/vhdx-verification.md)を参照してください。
 [GitHub ActionsのWindows/WSL2実験](docs/actions-native.md)も追加しています。

@@ -104,6 +104,7 @@ if [[ $action == snapshot ]]; then
     exit 0
 fi
 validate_bundle
+[[ ! -L $journal ]] || die 'journal symlink rejected'
 if [[ ! -e $journal ]]; then
     [[ ! -e $previous && ! -L $previous ]] || die 'previous root without journal'
     oldid=$(subid "$top/@")

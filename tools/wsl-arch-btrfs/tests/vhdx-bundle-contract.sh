@@ -29,6 +29,14 @@ mount -t btrfs -o subvolid=5 "$device" "$top"
 printf 'changed\n' > "$top/@/home/arch/$label"
 printf 'changed\n' > "$top/@/var/lib/machines/$label/nested space/payload"
 sync; umount "$top"
+[[ ! -e $d/restore-$label.ids && ! -L $d/restore-$label.ids && ! -e $d/missing-$label ]]
+ln -s "$d/missing-$label" "$d/restore-$label.ids"
+rc=0
+bash "$script" restore "$label" "$instance" --apply || rc=$?
+[[ $rc != 0 && -L $d/restore-$label.ids && ! -e $d/missing-$label ]]
+[[ $(readlink "$d/restore-$label.ids") == "$d/missing-$label" ]]
+unlink "$d/restore-$label.ids"
+echo 'PASS dangling journal symlink refused without following or replacing it'
 rc=0
 ARCHBTRFS_TEST_STOP=after-old-rename bash "$script" restore "$label" "$instance" --apply || rc=$?
 [[ $rc == 75 ]]

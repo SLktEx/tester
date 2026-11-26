@@ -2,6 +2,7 @@
 
 2026-11-26の専用Labで手動検証した後に `recovery/vhdx-bundle.sh` を実装した。
 これはVHDX全体の完成版setupではない。接続済みの専用VHDXと、Debian救援状態を必要とする。
+[匿名化した実行ログ抜粋](logs/vhdx-recovery-20261126.txt)も保存している。
 
 ## 実機で確認したこと
 
@@ -19,7 +20,10 @@
    restore再実行、全一時mount解除がPASS。
 
 より深い入れ子と空白を含む名前の試験を `tests/vhdx-bundle-contract.sh` に追加した。
-この追加ケースの結果はCIログで別に確認する。旧手動試験の成功を代用しない。
+[native CI 45729729612](https://github.com/SLktEx/tester/actions/runs/45729729612)で
+この追加ケースと復旧後のArch起動・新規sessionがPASS。対象commitは `6d3c8d0`。
+Windows Server 2025 / WSL 3.0.5 / kernel 6.18.58.1-1の新規runnerで実行した。
+完全VHDX setupによる独立Clean検証とは別の、復旧処理の再現試験である。
 
 ## 使用条件と操作
 
@@ -64,3 +68,7 @@ VS Codeの既存接続はroot切替後にReload Windowを要する場合があ�
 `Native-Process.ps1` には実プロセスで検証したUTF-8引数処理、終了コード、上限時間、
 ファイルロックを追加した。タイムアウト時に終了するのは起動したクライアントだけ。
 OS側の要求が継続している可能性を報告し、WSL VMや他distroは停止しない。
+
+`Vhdx-Protection.ps1` のACL判定は合成descriptorで検証した。所有者が通常ユーザーのまま、
+書込権限の混入、余分なprincipal、継承の混入など8ケースを拒否する。
+これは実際の非昇格tokenによる書換拒否・タスク実行を証明するものではない。

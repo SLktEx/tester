@@ -155,3 +155,15 @@ WSLg compositor/X表示判定/PulseServer応答、`code .` extensionHostのroot�
 Debian救援往復と原本hash一致もPASS。音声の実再生、production task/launcher、完全Cleanは未検証。
 上の11月12日の未検証記述を、このLabで実施した範囲に限って更新する。
 失敗経緯・ログ・残る制約は[実機記録](vhdx-local-20261126.md)を参照。
+
+## 2026-11-26 追記: 入れ子snapshotと中断復旧
+
+先行テストのRED後、専用Labで手動操作を成功させてから `recovery/vhdx-bundle.sh` を実装。
+rootと入れ子の実データ復元、旧root保持、rename間の中断とDebian救援、再開後のArch起動がPASS。
+スクリプトでのsnapshot/restore再実行と中断再開もPASS。
+[詳細・制約](vhdx-recovery-bundles.md)と[実行抜粋](logs/vhdx-recovery-20261126.txt)を参照。
+
+[native CI 45729729612](https://github.com/SLktEx/tester/actions/runs/45729729612)で深い入れ子と空白名もPASS。
+WSL 3.0.5 / kernel 6.18.58.1-1、対象commit `6d3c8d0`。
+完成setup/Clean再現は引き続き未合格。
+保護store/task作成はユーザーから追加承認を受領したが、実際のUAC登録と通常tokenの権限試験は別途確認する。
