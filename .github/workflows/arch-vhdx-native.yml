@@ -53,6 +53,10 @@ jobs:
         timeout-minutes: 5
         shell: pwsh
         run: '& "$env:ARCHBTRFS_CI_BASE/project/tests/actions-native.ps1" -Phase TwoStage -Base $env:ARCHBTRFS_CI_BASE -Apply'
+      - name: Observe natural VM idle and explicit isolated VM restart
+        timeout-minutes: 8
+        shell: pwsh
+        run: '& "$env:ARCHBTRFS_CI_BASE/project/tests/actions-lifecycle.ps1" -Base $env:ARCHBTRFS_CI_BASE -Apply'
       - name: Preserve diagnostics (never upload images, rootfs, or private keys)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

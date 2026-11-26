@@ -9,6 +9,25 @@ ZIP内の未検証の登録・起動スクリプトを完成品として追加�
 
 ## 調べた実装と事実
 
+2026-11-26にmaster HEAD `dcdcb497797e975fafce5f3b9f5c4f7428dbc077` を再確認した。
+これは導入済み/CIで実行した3.0.5バイナリーと同一版という意味ではない。
+今回の再読で次の順序・保存処理を確認した。
+
+- [config.cpp](https://github.com/microsoft/WSL/blob/dcdcb497797e975fafce5f3b9f5c4f7428dbc077/src/linux/init/config.cpp#L755):
+  fstab処理はVM追加mount、Plan9起動（901行）、interop server作成（986行）より前。
+  2246行のコメントもfstab時点のinterop未起動を明記する。
+- [init.cpp](https://github.com/microsoft/WSL/blob/dcdcb497797e975fafce5f3b9f5c4f7428dbc077/src/linux/init/init.cpp#L2450):
+  BootInit時にはfork後の親が最初のsession leaderからの開始通知を待ち、
+  2535行でdistro initをexecする。forkされた待機プロセスの存在とsystemdの実起動を区別する。
+- [plan9.cpp](https://github.com/microsoft/WSL/blob/dcdcb497797e975fafce5f3b9f5c4f7428dbc077/src/linux/init/plan9.cpp#L210):
+  Plan9は `/` を開いたFDを共有へ渡す。root判定には独立sessionとUNCも引き続き必要。
+- [LxssUserSession.cpp](https://github.com/microsoft/WSL/blob/dcdcb497797e975fafce5f3b9f5c4f7428dbc077/src/windows/service/exe/LxssUserSession.cpp#L4252):
+  idle停止でattached disk状態を保存。3657行の読込後に保存情報を消す。
+  [WslCoreVm.cpp](https://github.com/microsoft/WSL/blob/dcdcb497797e975fafce5f3b9f5c4f7428dbc077/src/windows/service/exe/WslCoreVm.cpp#L2222)
+  の保存先はvolatile registryのまま。自然idleとhost再起動の実機試験を代替する証拠ではない。
+
+以下は11月11日時点の調査記録で、リンク先commitもその時点に固定している。
+
 2026-11-11 に Microsoft/WSL の最新HEAD
 `6e43d804cc1571079283df80f4cdd27608e611da` と、導入済み3.0.3のタグ
 `15ea3b3846c5f18318722d1381186b2ff6ed72eb` を確認した。
@@ -72,6 +91,11 @@ ZIP内の未検証の登録・起動スクリプトを完成品として追加�
 | Windows launcher＋有限再接続 | consoleを保持し、全結果を検証できる | 初回は専用launcherが必要。**手動実験の第一候補** |
 
 自然idleではWSLの保存復元も観察する。keeperやグローバル`.wslconfig`変更を前提にしない。
+`tests/actions-lifecycle.ps1` はこの観察のための実機実験で、GitHub-hosted runnerかつ
+登録済みdistroが当該テスト1個だけの場合に限定する。最初にVM processを観測し、
+実行中distroとそのprocessが消えた後に再起動結果を測定する。
+明示的 `--shutdown` も同じ隔離条件でだけ試し、通常launcherには入れない。
+これはローカルのUAC待ちと独立して行う試験であり、結果が出るまでは未検証。
 単なる `wsl -d NAME` はディスク接続済みならearly pivotを期待できるが、
 未接続で起動した同一クライアントがterminate後に再接続する仕様は確認できていない。
 ここは未検証として扱い、Windows Terminalでlauncherを指定する案を用意する。
