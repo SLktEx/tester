@@ -14,6 +14,7 @@ try {
     & $Python "$PSScriptRoot/test_vhdx_shell.py"
     if ($LASTEXITCODE -ne 0) { throw 'Bash behavior tests failed' }
     & "$PSScriptRoot/vhdx-state.Tests.ps1"
+    & "$PSScriptRoot/native-process.Tests.ps1"
     $scripts=Get-ChildItem (Split-Path $PSScriptRoot) -Recurse -Filter '*.ps1'
     foreach ($script in $scripts) {
         $tokens=$null; $errors=$null

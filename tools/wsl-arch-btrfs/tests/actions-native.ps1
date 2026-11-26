@@ -110,6 +110,11 @@ try {
             # Rescue first, detach only after no VHDX root is in use.
             & "$project/recovery/recover.ps1" -Action Debian -Name $name -Base $labs -Apply
             Invoke-LabWsl -d $name -u root --cd / --exec /bin/bash "$repo/tests/rescue.sh" $state.Instance
+            Invoke-LabWsl -d $name -u root --cd / --exec /bin/bash "$repo/tests/vhdx-bundle-contract.sh" $state.Instance 'ci-nested-restore' --apply
+            & "$project/recovery/recover.ps1" -Action Arch -Name $name -Base $labs -Apply
+            & "$PSScriptRoot/session.ps1" -Name $name -Base $labs
+            & "$project/recovery/recover.ps1" -Action Debian -Name $name -Base $labs -Apply
+            [IO.File]::WriteAllText((Join-Path $evidence 'bundle-pass.txt'),'PASS: recursive nested data restored, interrupted restore resumed, repeated snapshot/restore, old root preserved, Arch reboot/new sessions')
             Invoke-LabWsl --unmount $vhd
             Invoke-LabWsl -d $name -u root --cd / --exec /usr/bin/sha256sum -c "$(Get-GuestPath $output)/source.sha256"
             [IO.File]::WriteAllText((Join-Path $evidence 'two-stage-pass.txt'),'PASS: missing disk Debian, mount task, target restart into VHDX Arch root, systemd, cmd.exe, default/root sessions, UNC, repeated restart, Debian recovery, original raw hash. CI fixture, not production launcher.')

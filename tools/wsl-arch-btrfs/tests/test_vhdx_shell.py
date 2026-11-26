@@ -17,6 +17,15 @@ def bash_path(path):
     return '/' + value[0].lower() + value[2:] if len(value) > 1 and value[1] == ':' else value
 
 class ShellTests(unittest.TestCase):
+    def test_bundle_dry_run_and_invalid_arguments(self):
+        script=bash_path(ROOT/'recovery/vhdx-bundle.sh')
+        p=subprocess.run([BASH,script,'restore','sample',UUID],capture_output=True,text=True)
+        self.assertEqual(p.returncode,0,p.stderr)
+        self.assertIn('DRY RUN',p.stdout)
+        for args in [('restore','../escape',UUID),('delete','sample',UUID),('snapshot','sample','bad')]:
+            p=subprocess.run([BASH,script,*args,'--apply'],capture_output=True,text=True)
+            self.assertNotEqual(p.returncode,0)
+
     @classmethod
     def setUpClass(cls):
         subprocess.run([BASH, '--version'], check=True, capture_output=True)
