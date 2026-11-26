@@ -13,6 +13,7 @@ Read `CODEX_TASK.md` first. This repository is an experimental WSL2 Debian/ext4 
 - Do not claim a test passed unless you actually executed it. Separate PASS / FAIL / NOT TESTED / NOT FEASIBLE.
 
 ## Engineering expectations
+- Never publish the host's real Windows username or user-profile path to GitHub, including PR text, comments, commits, logs, screenshots, or artifacts. Use `%USERPROFILE%`, `$env:USERPROFILE`, or `<windows-user>` in public material. Keep raw local trial logs outside Git; check staged content and publication text for the actual local username before uploading.
 - Preserve original loopback mode and the ext4 Debian rescue path.
 - Investigate timing: `/etc/fstab` precedes Windows interop; never synchronously call `wsl.exe` there. `schtasks.exe` runs only after interop is available.
 - Make the normal user journey as close as possible to a single launch `wsl -d ArchBtrfs-Clean` or Windows Terminal profile; where vanilla `wsl` cannot reattach to a restarted distro, implement a clearly described alternative and explain the limitation.
