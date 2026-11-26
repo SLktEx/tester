@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 action=$1 label=$2 instance=$3
+echo "Target: instance $instance; action $action label $label; rollback: retained subvolumes"
+[[ ${4:-} == --apply ]] || { echo 'DRY RUN: add --apply'; exit 0; }
 [[ $label =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$ ]]
 case "$action" in
     snapshot)
@@ -12,6 +14,7 @@ case "$action" in
     *) exit 2 ;;
 esac
 [[ $(cat "$d/instance") == "$instance" && $(cat "$d/name") == "$WSL_DISTRO_NAME" ]]
+[[ ! -e $d/vhdx-mode ]] || { echo 'VHDX mode requires verified VHDX recovery; refusing raw clone mount' >&2; exit 2; }
 img="$d/arch.img"
 [[ -f $img && ! -L $img && $(blkid -s UUID -o value "$img") == "$(cat "$d/uuid")" ]]
 exec 9>"$d/setup.lock"; flock -n 9

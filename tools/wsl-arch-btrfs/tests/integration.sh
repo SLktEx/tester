@@ -2,6 +2,8 @@
 # Opens one short-lived WSLg window and one VS Code WSL window.
 set -euo pipefail
 instance=$1
+echo "Target: instance $instance; risk: opens WSLg/VS Code and creates test files; rollback: close test windows"
+[[ ${2:-} == --apply ]] || { echo 'DRY RUN: add --apply'; exit 0; }
 [[ $(id -un) == arch && $(cat /etc/archbtrfs-instance) == "$instance" ]]
 [[ $(findmnt -nro FSTYPE,FSROOT /) == 'btrfs /@' ]]
 [[ $(timeout 45 systemctl --user is-system-running --wait) == running ]]

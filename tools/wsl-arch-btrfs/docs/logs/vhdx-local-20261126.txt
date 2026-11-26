@@ -1,0 +1,46 @@
+2026-11-26 dedicated local ArchBtrfs-VhdxLab: EXCERPTS, not complete logs. Includes failed retries.
+UAC helper result: PASS
+SOURCE Lab-attach-verified-20261126.native.log
+EXIT 0
+EXIT 0
+EXIT 1
+EXIT 1
+PASS attached VHDX: device=/dev/sdf; UUID/instance/Arch/systemd/@/@snapshots verified read-only; root remains Debian
+EXIT 0
+PASS Debian/ext4 rescue: systemd running; no failed units; raw image detached
+EXIT 0
+SOURCE Lab-pivot-trial-20261126.native.log
+EXIT 1
+PASS Lab helper installed with backup; host activation marker still disabled
+EXIT 0
+glibc 2.44
+/dev/sdf[/@] btrfs e31932e4-38d0-4c3f-b96d-c689350c9e1d /@ 0:117
+sdf disk 8:80
+Microsoft Windows [Version 10.0.26300.10075]
+PASS VHDX root: device=/dev/sdf UUID=e31932e4-38d0-4c3f-b96d-c689350c9e1d FSROOT=/@ PID1=/usr/lib/systemd/systemd
+EXIT 0
+SOURCE Lab-vhdx-integration-20261126.native.log
+  Map State: IsViewable
+Microsoft Windows [Version 10.0.26300.10075]
+Connected extension host on Arch root: 863
+EXIT 0
+SOURCE ArchBtrfs-VhdxLab-recovery-20261126-085116-34952.native.log
+EXIT 0
+glibc 2.44
+EXIT 0
+SOURCE ArchBtrfs-VhdxLab-recovery-20261126-085230-3552.native.log
+EXIT 0
+EXIT 0
+SOURCE ArchBtrfs-VhdxLab-recovery-20261126-085240-3552.native.log
+EXIT 0
+glibc 2.44
+EXIT 0
+SOURCE Lab-vhdx-integration-after-recovery-20261126.native.log
+  Map State: IsViewable
+Microsoft Windows [Version 10.0.26300.10075]
+EXIT 1
+SOURCE Lab-vhdx-integration-after-ui-reload-20261126.native.log
+  Map State: IsViewable
+Microsoft Windows [Version 10.0.26300.10075]
+Connected extension host on Arch root: 9628
+EXIT 0

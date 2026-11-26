@@ -1,0 +1,25 @@
+name: Arch VHDX unit tests (no WSL)
+
+on:
+  pull_request:
+    paths:
+      - 'tools/wsl-arch-btrfs/**'
+      - '.github/workflows/arch-vhdx-unit.yml'
+  push:
+    paths:
+      - 'tools/wsl-arch-btrfs/**'
+      - '.github/workflows/arch-vhdx-unit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Fake devices and tasks, pure boot-state tests, syntax
+        shell: pwsh
+        run: ./tools/wsl-arch-btrfs/tests/Invoke-VhdxUnitTests.ps1

@@ -3,12 +3,15 @@
 param(
     [ValidatePattern('^ArchBtrfs-Clean[A-Za-z0-9-]*$')][string]$Name='ArchBtrfs-Clean02',
     [switch]$ElevatedLeg,
-    [guid]$Trial = [guid]::NewGuid()
+    [guid]$Trial = [guid]::NewGuid(),
+    [switch]$Apply
 )
 . "$PSScriptRoot/../scripts/host.ps1"
 $Base=Join-Path (Split-Path (Split-Path $PSScriptRoot)) 'wsl-arch-btrfs-labs'
 $state=Get-Content -Raw -LiteralPath (Join-Path $Base "$Name.json") | ConvertFrom-Json
 Assert-ManagedRegistration $state $Name (Join-Path $Base $Name.Substring(10))
+Write-Host "Target: $Name; risk: two target restarts and UAC; rollback: target data retained"
+if (!$Apply) { Write-Host 'DRY RUN: add -Apply'; return }
 $principal=[Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 $admin=$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if ($admin -ne $ElevatedLeg.IsPresent) { throw "Unexpected Windows token. Administrator=$admin" }
@@ -68,7 +71,7 @@ $measured=[Threading.EventWaitHandle]::new($false,'ManualReset',"Local\ArchBtrfs
 Start-Transcript -LiteralPath $log | Out-Null
 try {
     # Request the Windows token before starting or measuring either WSL instance.
-    $argsForUac=@('-NoProfile','-NonInteractive','-File',('"{0}"' -f $PSCommandPath),'-Name',$Name,'-ElevatedLeg','-Trial',$Trial.ToString())
+    $argsForUac=@('-NoProfile','-NonInteractive','-File',('"{0}"' -f $PSCommandPath),'-Name',$Name,'-ElevatedLeg','-Trial',$Trial.ToString(),'-Apply')
     $elevated=Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -Verb RunAs -WindowStyle Hidden -WorkingDirectory "$env:windir\System32" -ArgumentList $argsForUac -PassThru
     if (!$ready.WaitOne([timespan]::FromSeconds(30))) { throw 'Elevated observer did not signal readiness' }
     Write-Host 'Elevated observer confirmed Windows administrator token: True'

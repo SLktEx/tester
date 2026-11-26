@@ -1,0 +1,37 @@
+Selected hosted Windows/WSL2 evidence; not a complete transcript.
+Run: https://github.com/SLktEx/tester/actions/runs/45731636940
+Commit: 0f6e3a59148f54fb1c34236cc4272c8a7a33916f
+All native phases including lifecycle completed successfully.
+Administrator/UAC-disabled hosted runner, not proof of local normal-token task ACLs.
+2026-11-26T00:51:27.0862700Z WSL version: 3.0.5.0
+2026-11-26T00:51:27.0866749Z Kernel version: 6.18.58.1-1
+2026-11-26T00:51:27.1057732Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:54:58.6879935Z WSL version: 3.0.5.0
+2026-11-26T00:54:58.6884784Z Kernel version: 6.18.58.1-1
+2026-11-26T00:54:58.7407618Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:56:06.8874832Z /var/lib/archbtrfs/arch.img: OK
+2026-11-26T00:56:41.7733703Z /var/lib/archbtrfs/arch.img: OK
+2026-11-26T00:57:10.3312415Z /var/lib/archbtrfs/arch.img: OK
+2026-11-26T00:57:18.9793422Z WSL version: 3.0.5.0
+2026-11-26T00:57:18.9796963Z Kernel version: 6.18.58.1-1
+2026-11-26T00:57:19.0305493Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:57:27.1823288Z /var/lib/archbtrfs/arch.img: OK
+2026-11-26T00:57:27.8111775Z WSL version: 3.0.5.0
+2026-11-26T00:57:27.8115947Z Kernel version: 6.18.58.1-1
+2026-11-26T00:57:27.8636404Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:57:31.4004133Z WSL version: 3.0.5.0
+2026-11-26T00:57:31.4008098Z Kernel version: 6.18.58.1-1
+2026-11-26T00:57:31.4491754Z Administrator=True; Windows=10.0.26100.0; Image=20261123.321.1
+2026-11-26T00:57:42.6854489Z PASS VHDX root: device=/dev/sde UUID=17f8901d-a0ca-453a-9823-6f3cba9c0a8b FSROOT=/@ PID1=/usr/lib/systemd/systemd
+2026-11-26T00:57:47.1639916Z PASS VHDX root: device=/dev/sde UUID=17f8901d-a0ca-453a-9823-6f3cba9c0a8b FSROOT=/@ PID1=/usr/lib/systemd/systemd
+2026-11-26T00:57:52.6567057Z PASS dangling journal symlink refused without following or replacing it
+2026-11-26T00:57:53.5799222Z PASS native bundle: deep nested content restored, old content retained, snapshot twice, interrupted restore, resumed restore twice, mounts released
+2026-11-26T00:58:11.8797973Z /var/lib/archbtrfs/arch.img: OK
+2026-11-26T00:59:36.5990043Z PASS natural idle observed: no running distro and prior vmmemWSL process absent
+2026-11-26T00:59:42.1389597Z after-natural-idle : WSL retained/restored attachment before root startup
+2026-11-26T00:59:42.4359399Z PASS VHDX root: device=/dev/sdd UUID=17f8901d-a0ca-453a-9823-6f3cba9c0a8b FSROOT=/@ PID1=/usr/lib/systemd/systemd
+2026-11-26T00:59:43.3154031Z PASS after-natural-idle : verified Arch root, PID1, independent sessions and UNC
+2026-11-26T00:59:49.2980675Z after-explicit-VM-stop : first session is Debian rescue
+2026-11-26T00:59:54.8131306Z PASS VHDX root: device=/dev/sde UUID=17f8901d-a0ca-453a-9823-6f3cba9c0a8b FSROOT=/@ PID1=/usr/lib/systemd/systemd
+2026-11-26T00:59:55.4068411Z PASS after-explicit-VM-stop : verified Arch root, PID1, independent sessions and UNC
+2026-11-26T01:00:10.7632986Z /var/lib/archbtrfs/arch.img: OK

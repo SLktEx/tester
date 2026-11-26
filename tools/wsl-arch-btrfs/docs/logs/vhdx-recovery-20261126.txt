@@ -1,0 +1,51 @@
+Selected local native evidence; not a complete transcript.
+Dedicated ArchBtrfs-VhdxLab only. Raw transcripts remain outside Git.
+
+Read-only preflight:
+  root=/dev/sdf[/@] btrfs
+  systemd=running
+  original root subvolume ID=257
+  nested: var/lib/machines, var/lib/portables
+
+Test before trial payload creation:
+  cat: //home/arch/trial-nested-20261126: No such file or directory
+  EXPECTED RED: restore payload absent
+After creating baseline in root and nested machines:
+  PASS restored root and nested-subvolume payloads
+
+Offline manual snapshot, then change both active payloads:
+  PASS offline bundle captured root and nested content; root-only snapshot omitted nested content; live payload changed
+Interruption between old-root and new-root renames:
+  INJECTED interruption after old root rename; Debian rescue retained; resume required
+  PASS expected interruption exit 75
+  PASS new session retains Debian rescue
+Resume and reboot:
+  PASS resumed interrupted root switch; previous root and nested payload retained
+  glibc 2.44
+  root subvolume ID=263
+  PASS restored root and nested-subvolume payloads
+  Windows administrator token: False
+  session.ps1 exit 0 (root/default user/UNC assertions)
+
+Acceptance test before reusable recovery implementation:
+  EXPECTED RED: bundle implementation absent
+After implementing vhdx-bundle.sh from the manual trial:
+  PASS offline recursive bundle saved
+  PASS existing immutable bundle
+  INJECTED STOP; Debian rescue retained
+  PASS restore committed; previous root and nested subvolumes retained
+  PASS restore already committed; old root retained
+  PASS native bundle: snapshot twice, interrupted restore, resumed restore twice, mounts released
+
+Native client tests:
+  Initial Unicode assertion FAIL: child PowerShell emitted shift_jis, reader expected UTF-8.
+  Fixture explicitly sets UTF-8; WSL caller uses WSL_UTF8=1.
+  PASS native literal argument boundaries and Unicode
+  PASS explicit allowed nonzero and stderr
+  PASS unexpected nonzero rejected
+  PASS real child timeout bounded
+  PASS concurrent lock rejected; release permits retry
+
+ACL policy tests (synthetic descriptors, not actual Task Scheduler enforcement):
+  PASS explicit protected file/directory/task ACL policy
+  PASS 8 unsafe owner/inheritance/write/extra-principal/missing-principal ACLs rejected
