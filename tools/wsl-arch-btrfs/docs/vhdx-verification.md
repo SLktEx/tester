@@ -146,3 +146,12 @@ UUID/`@`照合に加えcanonical mount SOURCEとdiskを比較するテストへ�
 task ACL/非昇格token、並行・timeout・中断・自然idle、WSLg GUI/音声、`code .`、
 snapshotからの起動復旧、利用者向けVHDX setupと独立Cleanでの完全再現は残る。
 ユーザーのPCのWSL・UAC・VHDXには今回一切操作していない。
+
+## 2026-11-26 ローカル専用Labでの追加検証
+
+ユーザーのUAC再試行依頼により、**承認済みArchBtrfs-VhdxLabのみ**で実機試行を再開。
+手動attach、VHDX root、通常Windows tokenからの新規session/UNC、systemd、cmd.exe、
+WSLg compositor/X表示判定/PulseServer応答、`code .` extensionHostのroot一致がPASS。
+Debian救援往復と原本hash一致もPASS。音声の実再生、production task/launcher、完全Cleanは未検証。
+上の11月12日の未検証記述を、このLabで実施した範囲に限って更新する。
+失敗経緯・ログ・残る制約は[実機記録](vhdx-local-20261126.md)を参照。

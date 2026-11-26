@@ -4,7 +4,9 @@
 [テスト結果・未検証一覧](docs/vhdx-verification.md) を参照してください。
 新規Labでのloop基準測定・救援起動修正・VHDXへの変換は成功しています。
 Actions専用の実験処理でVHDX root起動・再起動・Debian救援復帰まで成功しています。
-利用者向けVHDX setup・GUI/IDE・完全なクリーン再現は未完了です。
+ローカル専用Labでも、UAC接続・VHDX root・非昇格session・WSLg表示判定・`code .`・救援往復を確認しました。
+[2026-11-26の実機結果と復旧](docs/vhdx-local-20261126.md)を参照してください。
+利用者向けVHDX setup・自動再接続・完全なクリーン再現は未完了です。
 [実機試行記録](docs/vhdx-native-trials.md)と[Actions結果](docs/vhdx-verification.md)を参照してください。
 [GitHub ActionsのWindows/WSL2実験](docs/actions-native.md)も追加しています。
 ホスト型Windowsランナーで新規環境を構築し、変換・接続・2段階起動を検査します。
