@@ -8,6 +8,8 @@ Actions専用の実験処理でVHDX root起動・再起動・Debian救援復帰�
 [2026-11-26の実機結果と復旧](docs/vhdx-local-20261126.md)を参照してください。
 入れ子のサブボリュームを含む[オフライン復旧バンドル](docs/vhdx-recovery-bundles.md)も追加しました。
 専用Labで中断からの復旧と再実行を検証済みです。VHDX setup全体の完成とは区別しています。
+独立したActionsのWSL 3.0.5でも、自然idle後の接続復元と、明示VM停止後の
+Debian救援→接続task→Arch復帰を実測しました。[結果と範囲](docs/vhdx-verification.md)を参照してください。
 利用者向けVHDX setup・自動再接続・完全なクリーン再現は未完了です。
 [実機試行記録](docs/vhdx-native-trials.md)と[Actions結果](docs/vhdx-verification.md)を参照してください。
 [GitHub ActionsのWindows/WSL2実験](docs/actions-native.md)も追加しています。

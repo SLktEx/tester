@@ -1,6 +1,9 @@
 # 実機試行記録 — Lab作成と変換
 
 2026-11-11（JST）。ユーザーの承認後に **新規 `ArchBtrfs-VhdxLab` のみ**を作成した。
+これは当日の記録。保護store/taskは2026-11-26に追加承認を受領済み。
+最新の起動・復旧結果は [local記録](vhdx-local-20261126.md) と
+[復旧バンドル](vhdx-recovery-bundles.md)、現在の承認範囲は[設計書](vhdx-two-stage.md)を参照。
 既存の登録・VHDX・グローバル設定は変更していない。Cleanはまだ作成していない。
 この記録はVHDX起動完成を意味しない。
 

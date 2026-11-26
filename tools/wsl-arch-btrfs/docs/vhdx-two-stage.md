@@ -95,7 +95,10 @@ ZIP内の未検証の登録・起動スクリプトを完成品として追加�
 登録済みdistroが当該テスト1個だけの場合に限定する。最初にVM processを観測し、
 実行中distroとそのprocessが消えた後に再起動結果を測定する。
 明示的 `--shutdown` も同じ隔離条件でだけ試し、通常launcherには入れない。
-これはローカルのUAC待ちと独立して行う試験であり、結果が出るまでは未検証。
+これはローカルのUAC待ちと独立して行った試験で、[run 45731636940](https://github.com/SLktEx/tester/actions/runs/45731636940)でPASS。
+WSL 3.0.5では、自然idle後はWSLが接続を復元して最初からArch/Btrfsになった。
+明示VM停止後はDebian救援になり、接続taskと対象だけの再起動でArchへ戻った。
+これは当該runnerでの実測で、host再起動や別versionでの保証ではない。
 単なる `wsl -d NAME` はディスク接続済みならearly pivotを期待できるが、
 未接続で起動した同一クライアントがterminate後に再接続する仕様は確認できていない。
 ここは未検証として扱い、Windows Terminalでlauncherを指定する案を用意する。
@@ -126,7 +129,11 @@ SYSTEMユーザーの別WSL登録を触らない。通常ユーザーにはtask�
 
 VHDXの末端fileだけにACLを付けても、ユーザーが祖先dirをrename/置換できれば固定pathの保護にならない。
 管理者所有の新規専用store（例 `%ProgramData%\ArchBtrfs-Vhdx\<instance>\arch-data.vhdx`）への
-コピーと、その親を含むACLの検証が必要。**これは追加の承認対象。まだ作成していない。**
+コピーと、その親を含むACLの検証が必要。
+2026-11-26、ユーザーは `%ProgramData%\ArchBtrfs-Vhdx\ArchBtrfs-VhdxLab` の保護コピーと
+`WSL-Arch-VhdxLab-Mount`、Lab成功後のVhdxClean相当も追加承認した。
+ローカル実験07の初回登録UACは応答待ちで、作成完了は未確認。
+重複のUAC要求を出さず、receipt・task・保護storeの実状態を確認してから実験09へ進む。
 source rawと変換結果は元の新規labに保存し、可逆性を保つ。
 
 ## 手動検証の順番・移行・復旧

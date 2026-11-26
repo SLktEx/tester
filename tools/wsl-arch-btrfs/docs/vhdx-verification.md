@@ -167,3 +167,26 @@ rootと入れ子の実データ復元、旧root保持、rename間の中断とDeb
 WSL 3.0.5 / kernel 6.18.58.1-1、対象commit `6d3c8d0`。
 完成setup/Clean再現は引き続き未合格。
 保護store/task作成はユーザーから追加承認を受領したが、実際のUAC登録と通常tokenの権限試験は別途確認する。
+
+## 2026-11-26: VM自然停止・明示停止後の実機起動
+
+[native run 45731636940](https://github.com/SLktEx/tester/actions/runs/45731636940) は全phase PASS。
+対象コード `0f6e3a59148f54fb1c34236cc4272c8a7a33916f`、新しいWindows Server 2025 runner、
+WSL 3.0.5 / kernel 6.18.58.1-1。単体CI [45731636900](https://github.com/SLktEx/tester/actions/runs/45731636900) もPASS。
+
+| 実測 | 結果 |
+|---|---|
+| 入れ子・空白名のデータ復旧、中断再開、繰返し、journal symlink拒否 | PASS |
+| 自然idleで登録が停止し、事前に観測したvmmemWSL processが消える | PASS |
+| 自然idle後の新規起動 | 接続が復元され、初回からArch/Btrfs。再attach不要 |
+| 当該distroしかない隔離runnerで明示VM停止後の新規起動 | Debian救援。接続task→対象terminate/restart→Archに復帰 |
+| 両経路のArch root、PID1、独立root/default session、UNC、cmd.exe | PASS |
+| 最後にDebian救援、対象disk detach、元raw hash一致 | PASS |
+
+[ログ抜粋](logs/actions-vhdx-45731636940.txt)。`/dev/sde`から`/dev/sdd`へ変わってもUUIDで識別した。
+自然idleと明示停止で結果が違うため、常に接続が失われる／常に保持されるとは扱わない。
+この実験に限り `--shutdown` を使用。GitHub-hostedかつ登録が試験対象1個だけであることを
+直前にも確認した。ローカル・self-hostedでの実行は拒否し、手元のWSL VM全停止はしていない。
+
+通常helper/launcher/setupへの統合、保護taskの通常token検証、Windowsホスト再起動、
+別Cleanで完成版setupからGUI/IDEを含む無人再現は未合格のまま。
